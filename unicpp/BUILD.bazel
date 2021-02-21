@@ -13,3 +13,9 @@ cc_library(
     srcs = ["unicode_data.cpp"],
     hdrs = ["unicode_data.h"],
 )
+
+cc_library(
+    name = "utf8",
+    srcs = ["utf8.cpp"],
+    hdrs = ["utf8.h"],
+)

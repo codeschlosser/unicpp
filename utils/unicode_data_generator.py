@@ -78,24 +78,24 @@ def main():
     print()
     print('namespace unicpp {')
     print()
-    print('const std::unordered_map<CharCode, CharCode> kUpperMap = {')
+    print('const std::unordered_map<char32_t, char32_t> kUpperMap = {')
     for (code, upper) in sorted(uppers.items()):
         print(f'    {{ {hex(code)}, {hex(upper)} }},')
     print('};')
     print()
-    print('const std::unordered_map<CharCode, CharCode> kLowerMap = {')
+    print('const std::unordered_map<char32_t, char32_t> kLowerMap = {')
     for (code, lower) in sorted(lowers.items()):
         print(f'    {{ {hex(code)}, {hex(lower)} }},')
     print('};')
     print()
     print(
-        'const std::map<CharCode, GeneralCategory> kGeneralCategoryRangeMap = {')
+        'const std::map<char32_t, GeneralCategory> kGeneralCategoryRangeMap = {')
     for (range_beg, range_category) in sorted(category_ranges):
         print(f'    {{ {hex(range_beg)}, {range_category} }},')
     print('};')
     print()
     print(
-        'const std::unordered_map<CharCode, NumericType> kNumericTypeMap = {')
+        'const std::unordered_map<char32_t, NumericType> kNumericTypeMap = {')
     for (code, numeric_type) in sorted(numeric_types.items()):
         print(f'    {{ {hex(code)}, {numeric_type} }},')
     print('};')

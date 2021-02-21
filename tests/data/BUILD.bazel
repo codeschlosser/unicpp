@@ -1,0 +1,6 @@
+package(default_visibility = ["//tests:__subpackages__"])
+
+filegroup(
+    name = "utf8_text_static_file",
+    srcs = ["utf8_text.txt"],
+)

@@ -4,17 +4,17 @@
 
 namespace unicpp {
 
-inline CharCode toupper(CharCode code) {
+inline char32_t toupper(char32_t code) {
   auto it = kUpperMap.find(code);
   return it != kUpperMap.end() ? it->second : code;
 }
 
-inline CharCode tolower(CharCode code) {
+inline char32_t tolower(char32_t code) {
   auto it = kLowerMap.find(code);
   return it != kLowerMap.end() ? it->second : code;
 }
 
-inline bool isalpha(CharCode code) {
+inline bool isalpha(char32_t code) {
   auto it = kGeneralCategoryRangeMap.upper_bound(code);
   if (it == kGeneralCategoryRangeMap.end()) {
     return false;
@@ -24,7 +24,7 @@ inline bool isalpha(CharCode code) {
           static_cast<uint64_t>(GeneralCategory::L)) != 0;
 }
 
-inline bool isdigit(CharCode code) {
+inline bool isdigit(char32_t code) {
   auto it = kNumericTypeMap.find(code);
   if (it == kNumericTypeMap.end()) {
     return false;

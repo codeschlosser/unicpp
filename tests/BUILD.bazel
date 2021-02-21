@@ -1,0 +1,12 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+cc_test(
+    name = "utf8_test",
+    srcs = ["utf8_test.cpp"],
+    data = ["//tests/data:utf8_text_static_file"],
+    deps = [
+        "//unicpp:utf8",
+        "@bazel_tools//tools/cpp/runfiles",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -2,7 +2,7 @@
 
 namespace unicpp {
 
-const std::unordered_map<CharCode, CharCode> kUpperMap = {
+const std::unordered_map<char32_t, char32_t> kUpperMap = {
     {0x61, 0x41},       {0x62, 0x42},       {0x63, 0x43},
     {0x64, 0x44},       {0x65, 0x45},       {0x66, 0x46},
     {0x67, 0x47},       {0x68, 0x48},       {0x69, 0x49},
@@ -475,7 +475,7 @@ const std::unordered_map<CharCode, CharCode> kUpperMap = {
     {0x1e941, 0x1e91f}, {0x1e942, 0x1e920}, {0x1e943, 0x1e921},
 };
 
-const std::unordered_map<CharCode, CharCode> kLowerMap = {
+const std::unordered_map<char32_t, char32_t> kLowerMap = {
     {0x41, 0x61},       {0x42, 0x62},       {0x43, 0x63},
     {0x44, 0x64},       {0x45, 0x65},       {0x46, 0x66},
     {0x47, 0x67},       {0x48, 0x68},       {0x49, 0x69},
@@ -943,7 +943,7 @@ const std::unordered_map<CharCode, CharCode> kLowerMap = {
     {0x1e921, 0x1e943},
 };
 
-const std::map<CharCode, GeneralCategory> kGeneralCategoryRangeMap = {
+const std::map<char32_t, GeneralCategory> kGeneralCategoryRangeMap = {
     {0x20, GeneralCategory::Cc},     {0x21, GeneralCategory::Zs},
     {0x24, GeneralCategory::Po},     {0x25, GeneralCategory::Sc},
     {0x28, GeneralCategory::Po},     {0x29, GeneralCategory::Ps},
@@ -2884,7 +2884,7 @@ const std::map<CharCode, GeneralCategory> kGeneralCategoryRangeMap = {
     {0x10fffe, GeneralCategory::Co}, {0x110000, GeneralCategory::Cn},
 };
 
-const std::unordered_map<CharCode, NumericType> kNumericTypeMap = {
+const std::unordered_map<char32_t, NumericType> kNumericTypeMap = {
     {0x30, NumericType::Decimal},    {0x31, NumericType::Decimal},
     {0x32, NumericType::Decimal},    {0x33, NumericType::Decimal},
     {0x34, NumericType::Decimal},    {0x35, NumericType::Decimal},

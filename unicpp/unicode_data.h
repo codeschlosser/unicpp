@@ -7,8 +7,6 @@
 
 namespace unicpp {
 
-using CharCode = char32_t;
-
 enum class GeneralCategory : uint64_t {
   Unknown = 0LL,
   Lu = 1LL << 1,
@@ -58,9 +56,9 @@ enum class NumericType {
   Numeric,
 };
 
-extern const std::unordered_map<CharCode, CharCode> kUpperMap;
-extern const std::unordered_map<CharCode, CharCode> kLowerMap;
-extern const std::map<CharCode, GeneralCategory> kGeneralCategoryRangeMap;
-extern const std::unordered_map<CharCode, NumericType> kNumericTypeMap;
+extern const std::unordered_map<char32_t, char32_t> kUpperMap;
+extern const std::unordered_map<char32_t, char32_t> kLowerMap;
+extern const std::map<char32_t, GeneralCategory> kGeneralCategoryRangeMap;
+extern const std::unordered_map<char32_t, NumericType> kNumericTypeMap;
 
 }  // namespace unicpp
