@@ -1,0 +1,15 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "char_type",
+    hdrs = ["char_type.h"],
+    deps = [":unicode_data"],
+)
+
+cc_library(
+    name = "unicode_data",
+    srcs = ["unicode_data.cpp"],
+    hdrs = ["unicode_data.h"],
+)
