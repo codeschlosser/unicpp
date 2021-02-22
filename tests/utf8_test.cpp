@@ -71,6 +71,11 @@ TEST(Utf8, DecodeInvalid) {
   const std::wstring kErrorInMidDecoded = L"\x800\xFFFD\xFFFD!";
 
   EXPECT_EQ(Utf8DecodeReplaceInvalid(kErrorInMidEncoded), kErrorInMidDecoded);
+
+  const char kNotEnoughEncoded[] = "\xF0";
+  const std::wstring kNotEnoughDecoded = L"\xFFFD";
+
+  EXPECT_EQ(Utf8DecodeReplaceInvalid(kNotEnoughEncoded), kNotEnoughDecoded);
 }
 
 }  // namespace

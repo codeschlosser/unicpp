@@ -20,7 +20,13 @@ enum class ErrorPolicy {
   kStop,
 };
 
-char32_t DecodeCharacter(const uint8_t*& ptr, const uint8_t* end);
+struct Utf8DecodeCharacterResult {
+  char32_t character;
+  size_t bytes_consumed;
+};
+
+Utf8DecodeCharacterResult Utf8DecodeCharacter(const uint8_t* data,
+                                              size_t size) noexcept;
 
 template <typename Result>
 Result Utf8Decode(std::string_view utf8_string, ErrorPolicy policy,
@@ -29,19 +35,24 @@ Result Utf8Decode(std::string_view utf8_string, ErrorPolicy policy,
   const uint8_t* ptr = (const uint8_t*)utf8_string.data();
   const uint8_t* end = ptr + utf8_string.length();
   while (ptr < end) {
-    char32_t ch = DecodeCharacter(ptr, end);
-    if (ch == kInvalidCharacter) {
+    Utf8DecodeCharacterResult decoded = Utf8DecodeCharacter(ptr, end - ptr);
+    if (decoded.character == kInvalidCharacter) {
       if (policy == ErrorPolicy::kSkip) {
         continue;
       } else if (policy == ErrorPolicy::kStop) {
         break;
       } else if (policy == ErrorPolicy::kReplace) {
-        ch = kReplacementCharacter;
+        decoded.character = kReplacementCharacter;
       } else {
         assert(0);
       }
     }
-    result.push_back(ch);
+    result.push_back(decoded.character);
+    if (decoded.bytes_consumed > 0) {
+      ptr += decoded.bytes_consumed;
+    } else {
+      ptr++;
+    }
   }
 
   if (bytes_decoded != nullptr) {

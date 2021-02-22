@@ -2,78 +2,87 @@
 
 namespace unicpp {
 
-char32_t DecodeCharacter(const uint8_t*& ptr, const uint8_t* end) {
-  int byte1 = *ptr++;
-  if ((byte1 & 0x80) == 0) {
-    return byte1;
-  } else if ((byte1 & 0xE0) == 0xC0) {
-    byte1 &= 0x1F;
-    if (byte1 <= 1) {
-      return kInvalidCharacter;
+Utf8DecodeCharacterResult Utf8DecodeCharacter(const uint8_t* data,
+                                              size_t size) noexcept {
+  if (size == 0) {
+    return {kInvalidCharacter, 0};
+  }
+  int byte0 = data[0];
+  if ((byte0 & 0x80) == 0) {
+    return {(char32_t)byte0, 1};
+  } else if ((byte0 & 0xE0) == 0xC0) {
+    byte0 &= 0x1F;
+    if (byte0 <= 1) {
+      return {kInvalidCharacter, 0};
     }
 
-    int byte2 = *ptr;
+    if (size < 2) {
+      return {kInvalidCharacter, 1};
+    }
+
+    int byte1 = data[1];
+    if ((byte1 & 0xC0) != 0x80) {
+      return {kInvalidCharacter, 1};
+    }
+
+    return {(char32_t)((byte0 << 6) | (byte1 & 0x3F)), 2};
+  } else if ((byte0 & 0xF0) == 0xE0) {
+    if (size < 3) {
+      return {kInvalidCharacter, 1};
+    }
+    int byte1 = data[1];
+    if ((byte1 & 0xC0) != 0x80) {
+      return {kInvalidCharacter, 1};
+    }
+
+    if ((byte0 & 0xF) == 0 && (byte1 & 0x20) == 0) {
+      return {kInvalidCharacter, 1};
+    }
+
+    int byte2 = data[2];
     if ((byte2 & 0xC0) != 0x80) {
-      return kInvalidCharacter;
+      return {kInvalidCharacter, 2};
     }
-    ptr++;
-    return (byte1 << 6) | (byte2 & 0x3F);
-  } else if ((byte1 & 0xF0) == 0xE0) {
-    int byte2 = *ptr;
+
+    return {(char32_t)(((byte0 & 0xF) << 12) | ((byte1 & 0x3F) << 6) |
+                       (byte2 & 0x3F)),
+            3};
+  } else if ((byte0 & 0xF8) == 0xF0) {
+    if ((byte0 & 0x7) > 0x4) {
+      return {kInvalidCharacter, 0};
+    }
+    if (size < 4) {
+      return {kInvalidCharacter, 1};
+    }
+
+    int byte1 = data[1];
+    if ((byte1 & 0xC0) != 0x80) {
+      return {kInvalidCharacter, 1};
+    }
+
+    if ((byte0 & 0x7) == 0 && (byte1 & 0x30) == 0) {
+      return {kInvalidCharacter, 1};
+    }
+
+    if ((byte0 & 0x7) == 0x4 && (byte1 & 0x30) > 0) {
+      return {kInvalidCharacter, 1};
+    }
+
+    int byte2 = data[2];
     if ((byte2 & 0xC0) != 0x80) {
-      return kInvalidCharacter;
+      return {kInvalidCharacter, 2};
     }
 
-    if ((byte1 & 0xF) == 0 && (byte2 & 0x20) == 0) {
-      return kInvalidCharacter;
-    }
-
-    ptr++;
-
-    int byte3 = *ptr;
+    int byte3 = data[3];
     if ((byte3 & 0xC0) != 0x80) {
-      return kInvalidCharacter;
-    }
-    ptr++;
-
-    return ((byte1 & 0xF) << 12) | ((byte2 & 0x3F) << 6) | (byte3 & 0x3F);
-  } else if ((byte1 & 0xF8) == 0xF0) {
-    if ((byte1 & 0x7) > 0x4) {
-      return kInvalidCharacter;
+      return {kInvalidCharacter, 3};
     }
 
-    int byte2 = *ptr;
-    if ((byte2 & 0xC0) != 0x80) {
-      return kInvalidCharacter;
-    }
-
-    if ((byte1 & 0x7) == 0 && (byte2 & 0x30) == 0) {
-      return kInvalidCharacter;
-    }
-
-    if ((byte1 & 0x7) == 0x4 && (byte2 & 0x30) > 0) {
-      return kInvalidCharacter;
-    }
-
-    ptr++;
-
-    int byte3 = *ptr;
-    if ((byte3 & 0xC0) != 0x80) {
-      return kInvalidCharacter;
-    }
-
-    ptr++;
-
-    int byte4 = *ptr;
-    if ((byte4 & 0xC0) != 0x80) {
-      return kInvalidCharacter;
-    }
-    ptr++;
-
-    return ((byte1 & 0x7) << 18) | ((byte2 & 0x3F) << 12) |
-           ((byte3 & 0x3F) << 6) | (byte4 & 0x3F);
+    return {(char32_t)(((byte0 & 0x7) << 18) | ((byte1 & 0x3F) << 12) |
+                       ((byte2 & 0x3F) << 6) | (byte3 & 0x3F)),
+            4};
   } else {
-    return kInvalidCharacter;
+    return {kInvalidCharacter, 0};
   }
 }
 
