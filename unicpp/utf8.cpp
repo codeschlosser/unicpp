@@ -1,89 +1,122 @@
 #include "utf8.h"
 
 namespace unicpp {
+namespace {
 
-Utf8DecodeCharacterResult Utf8DecodeCharacter(const uint8_t* data,
-                                              size_t size) noexcept {
-  if (size == 0) {
-    return {kInvalidCharacter, 0};
+class AssignmentCouterOutputIterator {
+public:
+  AssignmentCouterOutputIterator()
+      : counter_(std::make_shared<size_t>(0)) {}
+  AssignmentCouterOutputIterator& operator=(char32_t) {
+    (*counter_)++;
+    return *this;
   }
-  int byte0 = data[0];
-  if ((byte0 & 0x80) == 0) {
-    return {(char32_t)byte0, 1};
-  } else if ((byte0 & 0xE0) == 0xC0) {
-    byte0 &= 0x1F;
-    if (byte0 <= 1) {
-      return {kInvalidCharacter, 0};
-    }
-
-    if (size < 2) {
-      return {kInvalidCharacter, 1};
-    }
-
-    int byte1 = data[1];
-    if ((byte1 & 0xC0) != 0x80) {
-      return {kInvalidCharacter, 1};
-    }
-
-    return {(char32_t)((byte0 << 6) | (byte1 & 0x3F)), 2};
-  } else if ((byte0 & 0xF0) == 0xE0) {
-    if (size < 3) {
-      return {kInvalidCharacter, 1};
-    }
-    int byte1 = data[1];
-    if ((byte1 & 0xC0) != 0x80) {
-      return {kInvalidCharacter, 1};
-    }
-
-    if ((byte0 & 0xF) == 0 && (byte1 & 0x20) == 0) {
-      return {kInvalidCharacter, 1};
-    }
-
-    int byte2 = data[2];
-    if ((byte2 & 0xC0) != 0x80) {
-      return {kInvalidCharacter, 2};
-    }
-
-    return {(char32_t)(((byte0 & 0xF) << 12) | ((byte1 & 0x3F) << 6) |
-                       (byte2 & 0x3F)),
-            3};
-  } else if ((byte0 & 0xF8) == 0xF0) {
-    if ((byte0 & 0x7) > 0x4) {
-      return {kInvalidCharacter, 0};
-    }
-    if (size < 4) {
-      return {kInvalidCharacter, 1};
-    }
-
-    int byte1 = data[1];
-    if ((byte1 & 0xC0) != 0x80) {
-      return {kInvalidCharacter, 1};
-    }
-
-    if ((byte0 & 0x7) == 0 && (byte1 & 0x30) == 0) {
-      return {kInvalidCharacter, 1};
-    }
-
-    if ((byte0 & 0x7) == 0x4 && (byte1 & 0x30) > 0) {
-      return {kInvalidCharacter, 1};
-    }
-
-    int byte2 = data[2];
-    if ((byte2 & 0xC0) != 0x80) {
-      return {kInvalidCharacter, 2};
-    }
-
-    int byte3 = data[3];
-    if ((byte3 & 0xC0) != 0x80) {
-      return {kInvalidCharacter, 3};
-    }
-
-    return {(char32_t)(((byte0 & 0x7) << 18) | ((byte1 & 0x3F) << 12) |
-                       ((byte2 & 0x3F) << 6) | (byte3 & 0x3F)),
-            4};
-  } else {
-    return {kInvalidCharacter, 0};
+  AssignmentCouterOutputIterator& operator*() {
+    return *this;
   }
+  AssignmentCouterOutputIterator& operator++() {
+    return *this;
+  }
+  AssignmentCouterOutputIterator operator++(int) {
+    AssignmentCouterOutputIterator tmp(*this);
+    operator++();
+    return tmp;
+  }
+
+  size_t count() const {
+    return *counter_;
+  }
+
+private:
+  std::shared_ptr<size_t> counter_;
+};
+
+class NopOutputIterator {
+public:
+  NopOutputIterator& operator=(char32_t) {
+    return *this;
+  }
+  NopOutputIterator& operator*() {
+    return *this;
+  }
+  NopOutputIterator& operator++() {
+    return *this;
+  }
+  NopOutputIterator operator++(int) {
+    NopOutputIterator tmp(*this);
+    operator++();
+    return tmp;
+  }
+};
+
+}  // namespace
+
+size_t Utf8ValidCharacters(std::string_view utf8_string) {
+  AssignmentCouterOutputIterator counter;
+  Utf8Decode((const uint8_t*)utf8_string.data(),
+             (const uint8_t*)utf8_string.data() + utf8_string.length(),
+             counter);
+
+  return counter.count();
+}
+
+size_t Utf8ValidPrefix(std::string_view utf8_string) {
+  return Utf8Decode((const uint8_t*)utf8_string.data(),
+                    (const uint8_t*)utf8_string.data() + utf8_string.length(),
+                    NopOutputIterator());
+}
+
+std::string Utf8EncodeReplaceInvalid(std::wstring_view wide_string) {
+  std::string result;
+  std::back_insert_iterator<std::string> inserter(result);
+  Utf8Encode(wide_string, ErrorPolicy::kReplace, inserter);
+  return result;
+}
+
+std::string Utf8EncodeSkipInvalid(std::wstring_view wide_string) {
+  std::string result;
+  std::back_insert_iterator<std::string> inserter(result);
+  Utf8Encode(wide_string, ErrorPolicy::kSkip, inserter);
+  return result;
+}
+
+std::string Utf8EncodeStopOnInvalid(std::wstring_view wide_string,
+                                    size_t* wchars_encoded) {
+  std::string result;
+  std::back_insert_iterator<std::string> inserter(result);
+  size_t encoded = Utf8Encode(wide_string, ErrorPolicy::kReplace, inserter);
+  if (wchars_encoded != nullptr) {
+    *wchars_encoded = encoded;
+  }
+  return result;
+}
+
+std::wstring Utf8DecodeReplaceInvalid(std::string_view utf8_string) {
+  std::wstring result;
+  std::back_insert_iterator<std::wstring> inserter(result);
+  Utf8Decode(utf8_string, ErrorPolicy::kReplace, inserter);
+
+  return result;
+}
+
+std::wstring Utf8DecodeSkipInvalid(std::string_view utf8_string) {
+  std::wstring result;
+  std::back_insert_iterator<std::wstring> inserter(result);
+  Utf8Decode(utf8_string, ErrorPolicy::kSkip, inserter);
+
+  return result;
+}
+
+std::wstring Utf8DecodeStopOnInvalid(std::string_view utf8_string,
+                                     size_t* bytes_decoded) {
+  std::wstring result;
+  std::back_insert_iterator<std::wstring> inserter(result);
+  size_t decoded = Utf8Decode(utf8_string, ErrorPolicy::kSkip, inserter);
+  if (bytes_decoded != nullptr) {
+    *bytes_decoded = decoded;
+  }
+
+  return result;
 }
 
 }  // namespace unicpp
