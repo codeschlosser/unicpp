@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cassert>
 #include <deque>
 #include <iterator>
@@ -73,6 +74,20 @@ void PushAsciiChars(uint64_t packed, OutputIterator iterator) {
 
 }  // namespace detail
 
+inline size_t Utf8ExpectedCodeLength(uint8_t byte0) {
+  if (byte0 < 0x80) {
+    return 1;
+  } else if (byte0 < 0xE0) {
+    return 2;
+  } else if (byte0 < 0xF0) {
+    return 3;
+  } else if (byte0 < 0xF5) {
+    return 4;
+  } else {
+    return 0;
+  }
+}
+
 template <class OutputIterator>
 size_t Utf8Decode(const uint8_t* data, const uint8_t* end,
                   OutputIterator iterator) {
@@ -80,18 +95,22 @@ size_t Utf8Decode(const uint8_t* data, const uint8_t* end,
   const uint64_t* end64 = detail::Align64(end);
   while (data < end) {
     uint8_t byte0 = data[0];
-    if (byte0 < 0x80) {
+    size_t expected_length = Utf8ExpectedCodeLength(byte0);
+    if (expected_length == 1) {
       if (detail::IsAligned64(data)) {
         const uint64_t* data64 = reinterpret_cast<const uint64_t*>(data);
         while (data64 < end64 && detail::IsAllAscii(*data64)) {
           detail::PushAsciiChars(*data64++, iterator);
         }
         data = reinterpret_cast<const uint8_t*>(data64);
+        if (data == end) {
+          break;
+        }
       }
       if (*data < 0x80) {
         *iterator = *data++;
       }
-    } else if (byte0 < 0xE0) {
+    } else if (expected_length == 2) {
       if (byte0 < 0xC2) {
         // should have used 1 byte
         break;
@@ -105,7 +124,7 @@ size_t Utf8Decode(const uint8_t* data, const uint8_t* end,
       }
       data += 2;
       *iterator = ((byte0 & 0x1F) << 6) | (byte1 & 0x3F);
-    } else if (byte0 < 0xF0) {
+    } else if (expected_length == 3) {
       if (end - data < 3) {
         break;
       }
@@ -124,7 +143,7 @@ size_t Utf8Decode(const uint8_t* data, const uint8_t* end,
       data += 3;
       *iterator =
           ((byte0 & 0xF) << 12) | ((byte1 & 0x3F) << 6) | (byte2 & 0x3F);
-    } else if (byte0 < 0xF5) {
+    } else if (expected_length == 4) {
       if ((byte0 & 0x7) > 0x4) {
         // bigger than of U+10FFFF
         break;
@@ -194,7 +213,8 @@ size_t Utf8Decode(std::string_view utf8_string, ErrorPolicy policy,
 }
 
 template <class OutputIterator>
-void EncodeValidCharacter(char32_t code, OutputIterator iterator) {
+OutputIterator Utf8EncodeValidCharacter(char32_t code,
+                                        OutputIterator iterator) {
   if (code <= 0x7F) {
     *iterator = static_cast<uint8_t>(code);
   } else if (code <= 0x7FF) {
@@ -210,7 +230,7 @@ void EncodeValidCharacter(char32_t code, OutputIterator iterator) {
     *++iterator = static_cast<uint8_t>(0x80 | ((code >> 6) & 0x3F));
     *++iterator = static_cast<uint8_t>(0x80 | (code & 0x3F));
   }
-  ++iterator;
+  return ++iterator;
 }
 
 template <class OutputIterator, class CharT>
@@ -231,97 +251,49 @@ size_t Utf8Encode(std::basic_string_view<CharT> string, ErrorPolicy policy,
       }
     }
 
-    EncodeValidCharacter(ch, iterator);
+    Utf8EncodeValidCharacter(ch, iterator);
   }
 
   return i;
 }
 
 template <class ByteStreamIterator>
-class DecodeIterator {
+class Utf8DecodeIterator {
 public:
   static const size_t kBufferSize = 64;
   static const size_t kPaddingBytes = 4;
 
-  DecodeIterator(ByteStreamIterator input_beg, ByteStreamIterator input_end,
-                 ErrorPolicy policy = ErrorPolicy::kReplace)
+  Utf8DecodeIterator(ByteStreamIterator input_beg, ByteStreamIterator input_end,
+                     ErrorPolicy policy = ErrorPolicy::kReplace)
       : state_(std::make_shared<State>()) {
     state_->input_beg = input_beg;
     state_->input_end = input_end;
-    state_->input_buffer.reserve(kBufferSize);
+    // set fake value to kick off
+    state_->valid_bytes = state_->buffer.size();
     state_->policy = policy;
-    MaybePreload();
+    Advance(state_->buffer.size());
+    Next();
   }
 
   char32_t operator*() {
-    return state_->output_buffer.front();
+    return current_char;
   }
 
-  DecodeIterator& operator++() {
-    state_->output_buffer.pop_front();
-    MaybePreload();
+  Utf8DecodeIterator& operator++() {
+    Next();
 
     return *this;
   }
 
-  DecodeIterator operator++(int) {
-    DecodeIterator tmp(state_->input_end, state_->input_end);
-    tmp.state_->output_buffer.push_back(state_->output_buffer.front());
+  Utf8DecodeIterator operator++(int) {
+    Utf8DecodeIterator tmp(*this);
     operator++();
 
     return tmp;
   }
 
-  void MaybePreload() {
-    if (state_ == nullptr || !state_->output_buffer.empty()) {
-      return;
-    }
-    if (state_->input_beg == state_->input_end) {
-      state_.reset();
-      return;
-    }
-
-    while (state_->input_beg != state_->input_end &&
-           state_->input_buffer.size() < kBufferSize) {
-      state_->input_buffer.push_back(*state_->input_beg);
-      ++state_->input_beg;
-    }
-
-    size_t bytes_decoded = 0;
-    size_t bytes_to_decode = state_->input_buffer.size() < kBufferSize
-                                 ? state_->input_buffer.size()
-                                 : kBufferSize - kPaddingBytes;
-    std::back_insert_iterator<std::deque<char32_t>> output_iter(
-        state_->output_buffer);
-    while (bytes_decoded < bytes_to_decode) {
-      bytes_decoded +=
-          Utf8Decode(&state_->input_buffer[0] + bytes_decoded,
-                     &state_->input_buffer[0] + bytes_to_decode, output_iter);
-      if (bytes_decoded < bytes_to_decode) {
-        // kReplace
-        if (state_->policy == ErrorPolicy::kReplace) {
-          bytes_decoded++;
-          *output_iter = kReplacementCharacter;
-          ++output_iter;
-        } else if (state_->policy == ErrorPolicy::kSkip) {
-          bytes_decoded++;
-        } else if (state_->policy == ErrorPolicy::kStop) {
-          if (bytes_decoded == 0) {
-            state_.reset();
-            return;
-          } else {
-            break;
-          }
-        }
-      }
-    }
-    for (size_t i = 0; i < state_->input_buffer.size() - bytes_decoded; i++) {
-      state_->input_buffer[i] = state_->input_buffer[i + bytes_decoded];
-    }
-    state_->input_buffer.resize(state_->input_buffer.size() - bytes_decoded);
-  }
-
-  friend bool operator==(const DecodeIterator& a, const DecodeIterator& b) {
+  friend bool operator==(const Utf8DecodeIterator& a,
+                         const Utf8DecodeIterator& b) {
     return a.state_ == b.state_;
   }
 
@@ -330,85 +302,106 @@ public:
   }
 
 private:
-  struct State {
-    ByteStreamIterator input_beg;
-    ByteStreamIterator input_end;
-    std::vector<uint8_t> input_buffer;
-    std::deque<char32_t> output_buffer;
-    ErrorPolicy policy;
-  };
-
-  std::shared_ptr<State> state_;
-};
-
-template <class CharStreamIterator>
-class EncodeIterator {
-public:
-  EncodeIterator(CharStreamIterator input_beg, CharStreamIterator input_end,
-                 ErrorPolicy policy = ErrorPolicy::kReplace)
-      : state_(std::make_shared<State>()) {
-    state_->input_beg = input_beg;
-    state_->input_end = input_end;
-    state_->policy = policy;
-    MaybePreload();
-  }
-
-  uint8_t operator*() {
-    return state_->output_buffer.front();
-  }
-
-  EncodeIterator& operator++() {
-    state_->output_buffer.pop_front();
-    MaybePreload();
-
-    return *this;
-  }
-
-  EncodeIterator operator++(int) {
-    EncodeIterator tmp(state_->input_end, state_->input_end);
-    tmp.state_->output_buffer.push_back(state_->output_buffer.front());
-    operator++();
-
-    return tmp;
-  }
-
-  void MaybePreload() {
-    if (state_ == nullptr || !state_->output_buffer.empty()) {
+  void Advance(size_t count) {
+    if (state_ == nullptr) {
       return;
     }
-    if (state_->input_beg == state_->input_end) {
-      state_.reset();
+    assert(count <= state_->valid_bytes);
+    size_t bytes_to_keep = state_->valid_bytes - count;
+    for (size_t i = 0; i < bytes_to_keep; i++) {
+      state_->buffer[i] = state_->buffer[i + count];
+    }
+    state_->valid_bytes = bytes_to_keep;
+    while (state_->input_beg != state_->input_end &&
+           state_->valid_bytes < state_->buffer.size()) {
+      state_->buffer[state_->valid_bytes++] = (*state_->input_beg);
+      ++state_->input_beg;
+    }
+  }
+
+  void Next() {
+    if (state_ == nullptr) {
       return;
     }
 
-    std::back_insert_iterator<std::deque<uint8_t>> iter(state_->output_buffer);
-    char32_t ch = *(state_->input_beg);
-    ++state_->input_beg;
-    if (ch > kMaxValidCharacter) {
-      if (state_->policy == ErrorPolicy::kReplace) {
-        ch = kReplacementCharacter;
+    while (state_->valid_bytes > 0) {
+      size_t bytes_expected = Utf8ExpectedCodeLength(state_->buffer[0]);
+      size_t bytes_to_decode = std::min(state_->valid_bytes, bytes_expected);
+      size_t bytes_decoded =
+          Utf8Decode(&state_->buffer[0], &state_->buffer[0] + bytes_to_decode,
+                     &current_char);
+      if (bytes_decoded > 0) {
+        assert(bytes_decoded == bytes_expected);
+        Advance(bytes_decoded);
+        return;
+      }
+      if (state_->policy == ErrorPolicy::kSkip) {
+        Advance(1);
+        continue;
+      } else if (state_->policy == ErrorPolicy::kReplace) {
+        Advance(1);
+        current_char = kReplacementCharacter;
+        return;
       } else if (state_->policy == ErrorPolicy::kStop) {
         state_.reset();
         return;
-      } else if (state_->policy == ErrorPolicy::kSkip) {
-        while (state_->input_beg != state_->input_end &&
-               ch > kMaxValidCharacter) {
-          ch = *(state_->input_beg);
-          ++state_->input_beg;
-        }
-        if (ch > kMaxValidCharacter) {
-          state_.reset();
-          return;
-        }
       } else {
         assert(0);
       }
     }
-    EncodeValidCharacter(ch, iter);
+    state_.reset();
   }
 
-  friend bool operator==(const EncodeIterator& a, const EncodeIterator& b) {
-    return a.state_ == b.state_;
+  struct State {
+    ByteStreamIterator input_beg;
+    ByteStreamIterator input_end;
+    std::array<uint8_t, 4> buffer;
+    size_t valid_bytes;
+    ErrorPolicy policy;
+  };
+
+  std::shared_ptr<State> state_;
+  char32_t current_char;
+};
+
+template <class CharStreamIterator>
+class Utf8EncodeIterator {
+public:
+  Utf8EncodeIterator(CharStreamIterator input_beg, CharStreamIterator input_end,
+                     ErrorPolicy policy = ErrorPolicy::kReplace)
+      : state_(std::make_shared<State>()) {
+    state_->input_beg = input_beg;
+    state_->input_end = input_end;
+    state_->valid_bytes = 0;
+    state_->current_offset = 0;
+    state_->policy = policy;
+    NextChar();
+  }
+
+  uint8_t operator*() {
+    return current_byte;
+  }
+
+  Utf8EncodeIterator& operator++() {
+    if (++state_->current_offset >= state_->valid_bytes) {
+      NextChar();
+    } else {
+      current_byte = state_->buffer[state_->current_offset];
+    }
+
+    return *this;
+  }
+
+  Utf8EncodeIterator operator++(int) {
+    Utf8EncodeIterator tmp(*this);
+    operator++();
+
+    return tmp;
+  }
+
+  friend bool operator==(const Utf8EncodeIterator& a,
+                         const Utf8EncodeIterator& b) {
+    return a.state_ == b.state_ && a.current_byte == b.current_byte;
   }
 
   operator bool() const {
@@ -416,26 +409,70 @@ public:
   }
 
 private:
+  void NextChar() {
+    if (state_ == nullptr || state_->current_offset < state_->valid_bytes) {
+      return;
+    }
+    if (state_->input_beg == state_->input_end) {
+      state_.reset();
+      return;
+    }
+
+    char32_t ch = kMaxValidCharacter + 1;
+    while (state_->input_beg != state_->input_end) {
+      ch = *(state_->input_beg);
+      ++state_->input_beg;
+      if (ch <= kMaxValidCharacter) {
+        break;
+      }
+      if (state_->policy == ErrorPolicy::kReplace) {
+        ch = kReplacementCharacter;
+        break;
+      } else if (state_->policy == ErrorPolicy::kStop) {
+        state_.reset();
+        return;
+      } else if (state_->policy == ErrorPolicy::kSkip) {
+        continue;
+      } else {
+        assert(0);
+      }
+    }
+
+    if (ch > kMaxValidCharacter) {
+      state_.reset();
+      return;
+    }
+
+    uint8_t* ptr = Utf8EncodeValidCharacter(ch, &state_->buffer[0]);
+    state_->valid_bytes = ptr - &state_->buffer[0];
+    state_->current_offset = 0;
+    current_byte = state_->buffer[0];
+  }
+
   struct State {
     CharStreamIterator input_beg;
     CharStreamIterator input_end;
-    std::deque<uint8_t> output_buffer;
+    std::array<uint8_t, 4> buffer;
+    size_t valid_bytes;
+    size_t current_offset;
     ErrorPolicy policy;
   };
 
   std::shared_ptr<State> state_;
+  uint8_t current_byte;
 };
 
-size_t Utf8ValidCharacters(std::string_view utf8_string);
-size_t Utf8ValidPrefix(std::string_view utf8_string);
+size_t Utf8ValidPrefixLength(std::string_view utf8_string);
+size_t Utf8NumValidChars(std::string_view utf8_string);
+size_t Utf8NumCharsWithReplacement(std::string_view utf8_string);
 
 std::string Utf8EncodeReplaceInvalid(std::wstring_view wide_string);
 std::string Utf8EncodeSkipInvalid(std::wstring_view wide_string);
 std::string Utf8EncodeStopOnInvalid(std::wstring_view wide_string,
-                                    size_t* wchars_encoded);
+                                    size_t* wchars_encoded = nullptr);
 std::wstring Utf8DecodeReplaceInvalid(std::string_view utf8_string);
 std::wstring Utf8DecodeSkipInvalid(std::string_view utf8_string);
 std::wstring Utf8DecodeStopOnInvalid(std::string_view utf8_string,
-                                     size_t* bytes_decoded);
+                                     size_t* bytes_decoded = nullptr);
 
 }  // namespace unicpp

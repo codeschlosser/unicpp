@@ -89,25 +89,27 @@ TEST(Utf8, DecodeInvalid) {
 }
 
 TEST(Utf8, Validation) {
-  EXPECT_EQ(Utf8ValidCharacters("\xE0\xA0\x80\xE0"), 1);
+  EXPECT_EQ(Utf8ValidPrefixLength("\xE0\xA0\x80\xE0"), 3);
+
+  EXPECT_EQ(Utf8NumValidChars("\xE0\xA0\x80\xE0"), 1);
+
+  EXPECT_EQ(Utf8NumCharsWithReplacement("\xE0\xA0\x80\xE0"), 2);
 
   std::string_view valid_ascii_text =
       "All human beings are born free and equal in dignity and rights.";
-  EXPECT_EQ(Utf8ValidCharacters(valid_ascii_text), valid_ascii_text.length());
-
-  EXPECT_EQ(Utf8ValidPrefix("\xE0\xA0\x80\xE0"), 3);
+  EXPECT_EQ(Utf8NumValidChars(valid_ascii_text), valid_ascii_text.length());
 }
 
 TEST(Utf8, DecodeIterator) {
   std::string_view one_char_valid = "A\x80Z";
-  DecodeIterator stopper(one_char_valid.begin(), one_char_valid.end(),
-                         ErrorPolicy::kStop);
+  Utf8DecodeIterator stopper(one_char_valid.begin(), one_char_valid.end(),
+                             ErrorPolicy::kStop);
   ASSERT_TRUE(stopper);
   EXPECT_EQ(*stopper, L'A');
   EXPECT_FALSE(++stopper);
 
-  DecodeIterator replacer(one_char_valid.begin(), one_char_valid.end(),
-                          ErrorPolicy::kReplace);
+  Utf8DecodeIterator replacer(one_char_valid.begin(), one_char_valid.end(),
+                              ErrorPolicy::kReplace);
   ASSERT_TRUE(replacer);
   EXPECT_EQ(*replacer, L'A');
   ASSERT_TRUE(++replacer);
@@ -116,8 +118,8 @@ TEST(Utf8, DecodeIterator) {
   EXPECT_EQ(*replacer, L'Z');
   EXPECT_FALSE(++replacer);
 
-  DecodeIterator skipper(one_char_valid.begin(), one_char_valid.end(),
-                         ErrorPolicy::kSkip);
+  Utf8DecodeIterator skipper(one_char_valid.begin(), one_char_valid.end(),
+                             ErrorPolicy::kSkip);
   ASSERT_TRUE(skipper);
   EXPECT_EQ(*skipper, L'A');
   ASSERT_TRUE(++skipper);
@@ -128,14 +130,14 @@ TEST(Utf8, DecodeIterator) {
 TEST(Utf8, EncodeIterator) {
   char32_t text[] = {L'A', kMaxValidCharacter + 1, L'Z', L'\0'};
   std::u32string_view one_char_valid = text;
-  EncodeIterator stopper(one_char_valid.begin(), one_char_valid.end(),
-                         ErrorPolicy::kStop);
+  Utf8EncodeIterator stopper(one_char_valid.begin(), one_char_valid.end(),
+                             ErrorPolicy::kStop);
   ASSERT_TRUE(stopper);
   EXPECT_EQ(*stopper, 'A');
   EXPECT_FALSE(++stopper);
 
-  EncodeIterator replacer(one_char_valid.begin(), one_char_valid.end(),
-                          ErrorPolicy::kReplace);
+  Utf8EncodeIterator replacer(one_char_valid.begin(), one_char_valid.end(),
+                              ErrorPolicy::kReplace);
   ASSERT_TRUE(replacer);
   EXPECT_EQ(*replacer, 'A');
   // encoded kReplacementCharacter == {0xEF,0xBF,0xBD}
@@ -149,8 +151,8 @@ TEST(Utf8, EncodeIterator) {
   EXPECT_EQ(*replacer, 'Z');
   EXPECT_FALSE(++replacer);
 
-  EncodeIterator skipper(one_char_valid.begin(), one_char_valid.end(),
-                         ErrorPolicy::kSkip);
+  Utf8EncodeIterator skipper(one_char_valid.begin(), one_char_valid.end(),
+                             ErrorPolicy::kSkip);
   ASSERT_TRUE(skipper);
   EXPECT_EQ(*skipper, 'A');
   ASSERT_TRUE(++skipper);

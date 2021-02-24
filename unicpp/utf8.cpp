@@ -51,19 +51,24 @@ public:
 
 }  // namespace
 
-size_t Utf8ValidCharacters(std::string_view utf8_string) {
+size_t Utf8ValidPrefixLength(std::string_view utf8_string) {
+  return Utf8Decode((const uint8_t*)utf8_string.data(),
+                    (const uint8_t*)utf8_string.data() + utf8_string.length(),
+                    NopOutputIterator());
+}
+
+size_t Utf8NumValidChars(std::string_view utf8_string) {
   AssignmentCouterOutputIterator counter;
-  Utf8Decode((const uint8_t*)utf8_string.data(),
-             (const uint8_t*)utf8_string.data() + utf8_string.length(),
-             counter);
+  Utf8Decode(utf8_string, ErrorPolicy::kStop, counter);
 
   return counter.count();
 }
 
-size_t Utf8ValidPrefix(std::string_view utf8_string) {
-  return Utf8Decode((const uint8_t*)utf8_string.data(),
-                    (const uint8_t*)utf8_string.data() + utf8_string.length(),
-                    NopOutputIterator());
+size_t Utf8NumCharsWithReplacement(std::string_view utf8_string) {
+  AssignmentCouterOutputIterator counter;
+  Utf8Decode(utf8_string, ErrorPolicy::kReplace, counter);
+
+  return counter.count();
 }
 
 std::string Utf8EncodeReplaceInvalid(std::wstring_view wide_string) {
@@ -84,7 +89,7 @@ std::string Utf8EncodeStopOnInvalid(std::wstring_view wide_string,
                                     size_t* wchars_encoded) {
   std::string result;
   std::back_insert_iterator<std::string> inserter(result);
-  size_t encoded = Utf8Encode(wide_string, ErrorPolicy::kReplace, inserter);
+  size_t encoded = Utf8Encode(wide_string, ErrorPolicy::kStop, inserter);
   if (wchars_encoded != nullptr) {
     *wchars_encoded = encoded;
   }
@@ -111,7 +116,7 @@ std::wstring Utf8DecodeStopOnInvalid(std::string_view utf8_string,
                                      size_t* bytes_decoded) {
   std::wstring result;
   std::back_insert_iterator<std::wstring> inserter(result);
-  size_t decoded = Utf8Decode(utf8_string, ErrorPolicy::kSkip, inserter);
+  size_t decoded = Utf8Decode(utf8_string, ErrorPolicy::kStop, inserter);
   if (bytes_decoded != nullptr) {
     *bytes_decoded = decoded;
   }
