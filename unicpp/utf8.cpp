@@ -27,6 +27,15 @@ public:
     return *counter_;
   }
 
+  friend bool operator==(const AssignmentCouterOutputIterator& a,
+                         const AssignmentCouterOutputIterator& b) {
+    return &a == &b;
+  }
+  friend bool operator!=(const AssignmentCouterOutputIterator& a,
+                         const AssignmentCouterOutputIterator& b) {
+    return !(a == b);
+  }
+
 private:
   std::shared_ptr<size_t> counter_;
 };
@@ -47,13 +56,21 @@ public:
     operator++();
     return tmp;
   }
+
+  friend bool operator==(const NopOutputIterator& a,
+                         const NopOutputIterator& b) {
+    return &a == &b;
+  }
+  friend bool operator!=(const NopOutputIterator& a,
+                         const NopOutputIterator& b) {
+    return !(a == b);
+  }
 };
 
 }  // namespace
 
 size_t Utf8ValidPrefixLength(std::string_view utf8_string) {
-  return Utf8Decode((const uint8_t*)utf8_string.data(),
-                    (const uint8_t*)utf8_string.data() + utf8_string.length(),
+  return Utf8Decode(utf8_string.begin(), utf8_string.end(),
                     NopOutputIterator());
 }
 

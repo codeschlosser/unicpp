@@ -2,7 +2,6 @@
 
 #include <array>
 #include <cassert>
-#include <deque>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -22,137 +21,71 @@ enum class ErrorPolicy {
   kStop,
 };
 
-namespace detail {
-
-inline bool IsAligned64(const uint8_t* ptr) {
-  uint64_t address = reinterpret_cast<uint64_t>(ptr);
-  return (address & 0x7) == 0;
-}
-
-inline const uint64_t* Align64(const uint8_t* ptr) {
-  uint64_t address = reinterpret_cast<uint64_t>(ptr);
-  address &= ~0x7;
-  return reinterpret_cast<const uint64_t*>(address);
-}
-
-inline bool IsAllAscii(uint64_t bytes) {
-  return (bytes & 0x8080808080808080ULL) == 0;
-}
-
 inline bool IsContinuationByte(uint8_t byte) {
   return (byte & 0xC0) == 0x80;
 }
 
-constexpr bool IsLittleEndian() {
-  // TODO: add actual check when we find different endianness
-  return true;
-}
-
-template <class OutputIterator>
-void PushAsciiChars(uint64_t packed, OutputIterator iterator) {
-  if constexpr (IsLittleEndian()) {
-    *iterator = packed & 0xFF;
-    *++iterator = (packed >> 8) & 0xFF;
-    *++iterator = (packed >> 16) & 0xFF;
-    *++iterator = (packed >> 24) & 0xFF;
-    *++iterator = (packed >> 32) & 0xFF;
-    *++iterator = (packed >> 40) & 0xFF;
-    *++iterator = (packed >> 48) & 0xFF;
-    *++iterator = (packed >> 56) & 0xFF;
-  } else {
-    *iterator = (packed >> 56) & 0xFF;
-    *++iterator = (packed >> 48) & 0xFF;
-    *++iterator = (packed >> 40) & 0xFF;
-    *++iterator = (packed >> 32) & 0xFF;
-    *++iterator = (packed >> 24) & 0xFF;
-    *++iterator = (packed >> 16) & 0xFF;
-    *++iterator = (packed >> 8) & 0xFF;
-    *++iterator = packed & 0xFF;
+template <class InputIterator, class OutputIterator, bool kCheckBoundaries>
+size_t Utf8DecodeImpl(InputIterator input, InputIterator input_end,
+                      OutputIterator output, OutputIterator output_end) {
+  if constexpr (!kCheckBoundaries) {
+    // supress unused variable warning
+    (void)output_end;
   }
-  ++iterator;
-}
 
-}  // namespace detail
-
-inline size_t Utf8ExpectedCodeLength(uint8_t byte0) {
-  if (byte0 < 0x80) {
-    return 1;
-  } else if (byte0 < 0xE0) {
-    return 2;
-  } else if (byte0 < 0xF0) {
-    return 3;
-  } else if (byte0 < 0xF5) {
-    return 4;
-  } else {
-    return 0;
-  }
-}
-
-template <class OutputIterator>
-size_t Utf8Decode(const uint8_t* data, const uint8_t* end,
-                  OutputIterator iterator) {
-  size_t total_size = (size_t)(end - data);
-  const uint64_t* end64 = detail::Align64(end);
-  while (data < end) {
-    uint8_t byte0 = data[0];
-    size_t expected_length = Utf8ExpectedCodeLength(byte0);
-    if (expected_length == 1) {
-      if (detail::IsAligned64(data)) {
-        const uint64_t* data64 = reinterpret_cast<const uint64_t*>(data);
-        while (data64 < end64 && detail::IsAllAscii(*data64)) {
-          detail::PushAsciiChars(*data64++, iterator);
-        }
-        data = reinterpret_cast<const uint8_t*>(data64);
-        if (data == end) {
-          break;
-        }
+  size_t total_size = static_cast<size_t>(std::distance(input, input_end));
+  while (input != input_end) {
+    if constexpr (kCheckBoundaries) {
+      if (output == output_end) {
+        break;
       }
-      if (*data < 0x80) {
-        *iterator = *data++;
-      }
-    } else if (expected_length == 2) {
+    }
+    uint8_t byte0 = *input;
+    if (byte0 < 0x80) {
+      *output = *input;
+      ++input;
+    } else if (byte0 < 0xE0) {
       if (byte0 < 0xC2) {
         // should have used 1 byte
         break;
       }
-      if (end - data < 2) {
+      if (std::distance(input, input_end) < 2) {
         break;
       }
-      int byte1 = data[1];
-      if (!detail::IsContinuationByte(byte1)) {
+      int byte1 = *std::next(input, 1);
+      if (!IsContinuationByte(byte1)) {
         break;
       }
-      data += 2;
-      *iterator = ((byte0 & 0x1F) << 6) | (byte1 & 0x3F);
-    } else if (expected_length == 3) {
-      if (end - data < 3) {
+      std::advance(input, 2);
+      *output = ((byte0 & 0x1F) << 6) | (byte1 & 0x3F);
+    } else if (byte0 < 0xF0) {
+      if (std::distance(input, input_end) < 3) {
         break;
       }
-      int byte1 = data[1];
-      if (!detail::IsContinuationByte(byte1)) {
+      int byte1 = *std::next(input, 1);
+      if (!IsContinuationByte(byte1)) {
         break;
       }
       if ((byte0 & 0xF) == 0 && (byte1 & 0x20) == 0) {
         // should have used 2 bytes
         break;
       }
-      int byte2 = data[2];
-      if (!detail::IsContinuationByte(byte2)) {
+      int byte2 = *std::next(input, 2);
+      if (!IsContinuationByte(byte2)) {
         break;
       }
-      data += 3;
-      *iterator =
-          ((byte0 & 0xF) << 12) | ((byte1 & 0x3F) << 6) | (byte2 & 0x3F);
-    } else if (expected_length == 4) {
+      std::advance(input, 3);
+      *output = ((byte0 & 0xF) << 12) | ((byte1 & 0x3F) << 6) | (byte2 & 0x3F);
+    } else if (byte0 < 0xF5) {
       if ((byte0 & 0x7) > 0x4) {
         // bigger than of U+10FFFF
         break;
       }
-      if (end - data < 4) {
+      if (std::distance(input, input_end) < 4) {
         break;
       }
-      int byte1 = data[1];
-      if (!detail::IsContinuationByte(byte1)) {
+      int byte1 = *std::next(input, 1);
+      if (!IsContinuationByte(byte1)) {
         break;
       }
       if ((byte0 & 0x7) == 0 && (byte1 & 0x30) == 0) {
@@ -164,52 +97,68 @@ size_t Utf8Decode(const uint8_t* data, const uint8_t* end,
         break;
       }
 
-      int byte2 = data[2];
-      if (!detail::IsContinuationByte(byte2)) {
+      int byte2 = *std::next(input, 2);
+      if (!IsContinuationByte(byte2)) {
         break;
       }
-      int byte3 = data[3];
-      if (!detail::IsContinuationByte(byte3)) {
+      int byte3 = *std::next(input, 3);
+      if (!IsContinuationByte(byte3)) {
         break;
       }
-      data += 4;
-      *iterator = ((byte0 & 0x7) << 18) | ((byte1 & 0x3F) << 12) |
-                  ((byte2 & 0x3F) << 6) | (byte3 & 0x3F);
+      std::advance(input, 4);
+      *output = ((byte0 & 0x7) << 18) | ((byte1 & 0x3F) << 12) |
+                ((byte2 & 0x3F) << 6) | (byte3 & 0x3F);
     } else {
       break;
     }
-    ++iterator;
+    ++output;
   }
 
-  return total_size - (size_t)(end - data);
+  return total_size - static_cast<size_t>(std::distance(input, input_end));
+}
+
+template <class InputIterator, class OutputIterator>
+size_t Utf8Decode(InputIterator input_beg, InputIterator input_end,
+                  OutputIterator output) {
+  return Utf8DecodeImpl<InputIterator, OutputIterator,
+                        /*kCheckBoundaries = */ false>(input_beg, input_end,
+                                                       output, output);
+}
+
+template <class InputIterator, class OutputIterator>
+size_t Utf8Decode(InputIterator input_beg, InputIterator input_end,
+                  OutputIterator output_beg, OutputIterator output_end) {
+  return Utf8DecodeImpl<InputIterator, OutputIterator,
+                        /*kCheckBoundaries = */ true>(input_beg, input_end,
+                                                      output_beg, output_end);
 }
 
 template <class OutputIterator>
 size_t Utf8Decode(std::string_view utf8_string, ErrorPolicy policy,
-                  OutputIterator iterator) {
-  const uint8_t* data = (const uint8_t*)utf8_string.data();
-  const uint8_t* end = data + utf8_string.length();
-  while (data < end) {
-    size_t left = (size_t)(end - data);
-    size_t decoded = Utf8Decode(data, end, iterator);
+                  OutputIterator output) {
+  std::string_view::iterator iter = utf8_string.begin();
+  std::string_view::iterator end = utf8_string.end();
+  while (iter != end) {
+    size_t left = static_cast<size_t>(end - iter);
+    size_t decoded = Utf8Decode(iter, end, output);
     if (decoded < left) {
       if (policy == ErrorPolicy::kSkip) {
         ++decoded;
       } else if (policy == ErrorPolicy::kStop) {
-        data += decoded;
+        iter += decoded;
         break;
       } else if (policy == ErrorPolicy::kReplace) {
-        *iterator = kReplacementCharacter;
-        ++iterator;
+        *output = kReplacementCharacter;
+        ++output;
         ++decoded;
       } else {
         assert(0);
       }
     }
-    data += decoded;
+    iter += decoded;
   }
 
-  return data - (const uint8_t*)utf8_string.data();
+  return iter - utf8_string.begin();
 }
 
 template <class OutputIterator>
@@ -260,8 +209,15 @@ size_t Utf8Encode(std::basic_string_view<CharT> string, ErrorPolicy policy,
 template <class ByteStreamIterator>
 class Utf8DecodeIterator {
 public:
-  static const size_t kBufferSize = 64;
-  static const size_t kPaddingBytes = 4;
+  using iterator_category = std::input_iterator_tag;
+  using value_type = char32_t;
+  using difference_type = std::ptrdiff_t;
+  using pointer = char32_t*;
+  using reference = char32_t;
+
+  Utf8DecodeIterator()
+      : state_(nullptr)
+      , current_char_(0) {}
 
   Utf8DecodeIterator(ByteStreamIterator input_beg, ByteStreamIterator input_end,
                      ErrorPolicy policy = ErrorPolicy::kReplace)
@@ -275,8 +231,8 @@ public:
     Next();
   }
 
-  char32_t operator*() {
-    return current_char;
+  char32_t operator*() const {
+    return current_char_;
   }
 
   Utf8DecodeIterator& operator++() {
@@ -294,7 +250,10 @@ public:
 
   friend bool operator==(const Utf8DecodeIterator& a,
                          const Utf8DecodeIterator& b) {
-    return a.state_ == b.state_;
+    if (a.state_ != nullptr) {
+      return a.state_ == b.state_ && a.current_char_ == b.current_char_;
+    }
+    return b.state_ == nullptr;
   }
 
   operator bool() const {
@@ -325,13 +284,10 @@ private:
     }
 
     while (state_->valid_bytes > 0) {
-      size_t bytes_expected = Utf8ExpectedCodeLength(state_->buffer[0]);
-      size_t bytes_to_decode = std::min(state_->valid_bytes, bytes_expected);
-      size_t bytes_decoded =
-          Utf8Decode(&state_->buffer[0], &state_->buffer[0] + bytes_to_decode,
-                     &current_char);
+      size_t bytes_decoded = Utf8Decode(
+          state_->buffer.begin(), state_->buffer.begin() + state_->valid_bytes,
+          &current_char_, &current_char_ + 1);
       if (bytes_decoded > 0) {
-        assert(bytes_decoded == bytes_expected);
         Advance(bytes_decoded);
         return;
       }
@@ -340,7 +296,7 @@ private:
         continue;
       } else if (state_->policy == ErrorPolicy::kReplace) {
         Advance(1);
-        current_char = kReplacementCharacter;
+        current_char_ = kReplacementCharacter;
         return;
       } else if (state_->policy == ErrorPolicy::kStop) {
         state_.reset();
@@ -361,12 +317,21 @@ private:
   };
 
   std::shared_ptr<State> state_;
-  char32_t current_char;
+  char32_t current_char_;
 };
 
 template <class CharStreamIterator>
 class Utf8EncodeIterator {
 public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = uint8_t;
+  using difference_type = std::ptrdiff_t;
+  using pointer = uint8_t*;
+  using reference = uint8_t;
+
+  Utf8EncodeIterator()
+      : state_(nullptr)
+      , current_byte_(0) {}
   Utf8EncodeIterator(CharStreamIterator input_beg, CharStreamIterator input_end,
                      ErrorPolicy policy = ErrorPolicy::kReplace)
       : state_(std::make_shared<State>()) {
@@ -378,15 +343,15 @@ public:
     NextChar();
   }
 
-  uint8_t operator*() {
-    return current_byte;
+  uint8_t operator*() const {
+    return current_byte_;
   }
 
   Utf8EncodeIterator& operator++() {
     if (++state_->current_offset >= state_->valid_bytes) {
       NextChar();
     } else {
-      current_byte = state_->buffer[state_->current_offset];
+      current_byte_ = state_->buffer[state_->current_offset];
     }
 
     return *this;
@@ -401,7 +366,10 @@ public:
 
   friend bool operator==(const Utf8EncodeIterator& a,
                          const Utf8EncodeIterator& b) {
-    return a.state_ == b.state_ && a.current_byte == b.current_byte;
+    if (a.state_ != nullptr) {
+      return a.state_ == b.state_ && a.current_byte_ == b.current_byte_;
+    }
+    return b.state_ == nullptr;
   }
 
   operator bool() const {
@@ -443,10 +411,10 @@ private:
       return;
     }
 
-    uint8_t* ptr = Utf8EncodeValidCharacter(ch, &state_->buffer[0]);
-    state_->valid_bytes = ptr - &state_->buffer[0];
+    auto ptr = Utf8EncodeValidCharacter(ch, state_->buffer.begin());
+    state_->valid_bytes = ptr - state_->buffer.begin();
     state_->current_offset = 0;
-    current_byte = state_->buffer[0];
+    current_byte_ = *state_->buffer.begin();
   }
 
   struct State {
@@ -459,7 +427,7 @@ private:
   };
 
   std::shared_ptr<State> state_;
-  uint8_t current_byte;
+  uint8_t current_byte_;
 };
 
 size_t Utf8ValidPrefixLength(std::string_view utf8_string);

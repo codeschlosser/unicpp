@@ -12,6 +12,24 @@ namespace {
 
 using bazel::tools::cpp::runfiles::Runfiles;
 
+std::vector<char> LoadDataFile(const std::string& filepath) {
+  std::string error;
+  std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest(&error));
+  if (runfiles == nullptr) {
+    throw std::runtime_error("Couldn't load file: " + filepath);
+  }
+
+  std::string text_path = runfiles->Rlocation(filepath);
+  std::ifstream fin(text_path, std::ios_base::binary);
+
+  fin.seekg(0, std::ios_base::end);
+  std::vector<char> buffer(fin.tellg());
+  fin.seekg(0, std::ios_base::beg);
+  fin.read(&buffer[0], buffer.size());
+
+  return buffer;
+}
+
 TEST(Utf8, Ascii) {
   std::string_view text = "Hello, world!";
   std::wstring plain_copy(text.begin(), text.end());
@@ -21,29 +39,15 @@ TEST(Utf8, Ascii) {
 }
 
 TEST(Utf8, DecodeAndEncode) {
-  std::string error;
-  std::unique_ptr<Runfiles> runfiles(Runfiles::CreateForTest(&error));
-  ASSERT_NE(runfiles, nullptr);
+  std::vector<char> data = LoadDataFile("unicpp/tests/data/utf8_text.txt");
+  std::string_view view(&data[0], data.size());
 
-  std::string text_path =
-      runfiles->Rlocation("unicpp/tests/data/utf8_text.txt");
-  std::ifstream fin(text_path, std::ios_base::binary);
-
-  fin.seekg(0, std::ios_base::end);
-  size_t byte_count = fin.tellg();
-  fin.seekg(0, std::ios_base::beg);
-  std::vector<char> buffer(byte_count + 1);
-  fin.read(&buffer[0], byte_count);
-
-  std::wstring decoded = Utf8DecodeStopOnInvalid(&buffer[0], nullptr);
+  std::wstring decoded = Utf8DecodeStopOnInvalid(view, nullptr);
   ASSERT_FALSE(decoded.empty());
 
   std::string encoded = Utf8EncodeReplaceInvalid(decoded);
 
-  std::string_view initial = &buffer[0];
-  std::string_view changed = encoded.c_str();
-
-  EXPECT_EQ(initial, changed);
+  EXPECT_EQ(view, encoded);
 }
 
 TEST(Utf8, DecodeExotic) {
@@ -95,8 +99,7 @@ TEST(Utf8, Validation) {
 
   EXPECT_EQ(Utf8NumCharsWithReplacement("\xE0\xA0\x80\xE0"), 2);
 
-  std::string_view valid_ascii_text =
-      "All human beings are born free and equal in dignity and rights.";
+  std::string_view valid_ascii_text = "Hello, world!";
   EXPECT_EQ(Utf8NumValidChars(valid_ascii_text), valid_ascii_text.length());
 }
 
@@ -158,6 +161,22 @@ TEST(Utf8, EncodeIterator) {
   ASSERT_TRUE(++skipper);
   EXPECT_EQ(*skipper, 'Z');
   EXPECT_FALSE(++skipper);
+}
+
+TEST(Utf8, Iterators) {
+  std::vector<char> data = LoadDataFile("unicpp/tests/data/utf8_text.txt");
+
+  unicpp::Utf8DecodeIterator decoder(data.begin(), data.end());
+  unicpp::Utf8EncodeIterator encoder(decoder, decltype(decoder)());
+
+  std::vector<char> buffer;
+  std::copy(encoder, decltype(encoder)(), std::back_insert_iterator(buffer));
+
+  ASSERT_EQ(data.size(), buffer.size());
+
+  for (size_t i = 0; i < data.size(); i++) {
+    EXPECT_EQ(data[i], buffer[i]) << " i = " << i;
+  }
 }
 
 }  // namespace
