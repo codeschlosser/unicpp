@@ -434,13 +434,13 @@ size_t Utf8ValidPrefixLength(std::string_view utf8_string);
 size_t Utf8NumValidChars(std::string_view utf8_string);
 size_t Utf8NumCharsWithReplacement(std::string_view utf8_string);
 
-std::string Utf8EncodeReplaceInvalid(std::wstring_view wide_string);
-std::string Utf8EncodeSkipInvalid(std::wstring_view wide_string);
-std::string Utf8EncodeStopOnInvalid(std::wstring_view wide_string,
-                                    size_t* wchars_encoded = nullptr);
-std::wstring Utf8DecodeReplaceInvalid(std::string_view utf8_string);
-std::wstring Utf8DecodeSkipInvalid(std::string_view utf8_string);
-std::wstring Utf8DecodeStopOnInvalid(std::string_view utf8_string,
-                                     size_t* bytes_decoded = nullptr);
+std::string Utf8EncodeReplaceInvalid(std::u32string_view u32_string);
+std::string Utf8EncodeSkipInvalid(std::u32string_view u32_string);
+std::string Utf8EncodeStopOnInvalid(std::u32string_view u32_string,
+                                    size_t* u32chars_encoded = nullptr);
+std::u32string Utf8DecodeReplaceInvalid(std::string_view utf8_string);
+std::u32string Utf8DecodeSkipInvalid(std::string_view utf8_string);
+std::u32string Utf8DecodeStopOnInvalid(std::string_view utf8_string,
+                                       size_t* bytes_decoded = nullptr);
 
 }  // namespace unicpp

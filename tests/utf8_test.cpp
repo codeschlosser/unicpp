@@ -32,8 +32,8 @@ std::vector<char> LoadDataFile(const std::string& filepath) {
 
 TEST(Utf8, Ascii) {
   std::string_view text = "Hello, world!";
-  std::wstring plain_copy(text.begin(), text.end());
-  std::wstring decoded = Utf8DecodeStopOnInvalid(text, nullptr);
+  std::u32string plain_copy(text.begin(), text.end());
+  std::u32string decoded = Utf8DecodeStopOnInvalid(text, nullptr);
 
   EXPECT_EQ(plain_copy, decoded);
 }
@@ -42,7 +42,7 @@ TEST(Utf8, DecodeAndEncode) {
   std::vector<char> data = LoadDataFile("unicpp/tests/data/utf8_text.txt");
   std::string_view view(&data[0], data.size());
 
-  std::wstring decoded = Utf8DecodeStopOnInvalid(view, nullptr);
+  std::u32string decoded = Utf8DecodeStopOnInvalid(view, nullptr);
   ASSERT_FALSE(decoded.empty());
 
   std::string encoded = Utf8EncodeReplaceInvalid(decoded);
@@ -53,41 +53,39 @@ TEST(Utf8, DecodeAndEncode) {
 TEST(Utf8, DecodeExotic) {
   const char encoded[] = "\xe0\xa0\x80";
 
-  std::wstring decoded = Utf8DecodeReplaceInvalid(encoded);
+  std::u32string decoded = Utf8DecodeReplaceInvalid(encoded);
 
-  std::wstring expected = L"\x800";
+  std::u32string expected = U"\x800";
 
   EXPECT_EQ(decoded, expected);
 
-  if constexpr (sizeof(wchar_t) > 2) {
-    const char U100000_encoded[] = "\xF4\x80\x80\x80";
+  const char U100000_encoded[] = "\xF4\x80\x80\x80";
 
-    std::wstring U100000_decoded = Utf8DecodeReplaceInvalid(U100000_encoded);
+  std::u32string U100000_decoded = Utf8DecodeReplaceInvalid(U100000_encoded);
 
-    std::wstring U100000(1, 0x100000);
+  std::u32string U100000(1, 0x100000);
 
-    EXPECT_EQ(U100000_decoded, U100000);
-  }
+  EXPECT_EQ(U100000_decoded, U100000);
 }
 
 TEST(Utf8, DecodeInvalid) {
   const char kThreeErrorsEncoded[] = "\xE0\x90\x80";
-  const std::wstring kThreeErrorsDecoded = L"\xFFFD\xFFFD\xFFFD";
+  const std::u32string kThreeErrorsDecoded = U"\xFFFD\xFFFD\xFFFD";
 
   EXPECT_EQ(Utf8DecodeReplaceInvalid(kThreeErrorsEncoded), kThreeErrorsDecoded);
 
   const char kTwoErrorsEncoded[] = "\xC1\x80!";
-  const std::wstring kTwoErrorsDecoded = L"\xFFFD\xFFFD!";
+  const std::u32string kTwoErrorsDecoded = U"\xFFFD\xFFFD!";
 
   EXPECT_EQ(Utf8DecodeReplaceInvalid(kTwoErrorsEncoded), kTwoErrorsDecoded);
 
   const char kErrorInMidEncoded[] = "\xE0\xA0\x80\xE0\x90!";
-  const std::wstring kErrorInMidDecoded = L"\x800\xFFFD\xFFFD!";
+  const std::u32string kErrorInMidDecoded = U"\x800\xFFFD\xFFFD!";
 
   EXPECT_EQ(Utf8DecodeReplaceInvalid(kErrorInMidEncoded), kErrorInMidDecoded);
 
   const char kNotEnoughEncoded[] = "\xF0";
-  const std::wstring kNotEnoughDecoded = L"\xFFFD";
+  const std::u32string kNotEnoughDecoded = U"\xFFFD";
 
   EXPECT_EQ(Utf8DecodeReplaceInvalid(kNotEnoughEncoded), kNotEnoughDecoded);
 }
@@ -108,30 +106,30 @@ TEST(Utf8, DecodeIterator) {
   Utf8DecodeIterator stopper(one_char_valid.begin(), one_char_valid.end(),
                              ErrorPolicy::kStop);
   ASSERT_TRUE(stopper);
-  EXPECT_EQ(*stopper, L'A');
+  EXPECT_EQ(*stopper, U'A');
   EXPECT_FALSE(++stopper);
 
   Utf8DecodeIterator replacer(one_char_valid.begin(), one_char_valid.end(),
                               ErrorPolicy::kReplace);
   ASSERT_TRUE(replacer);
-  EXPECT_EQ(*replacer, L'A');
+  EXPECT_EQ(*replacer, U'A');
   ASSERT_TRUE(++replacer);
   EXPECT_EQ(*replacer, kReplacementCharacter);
   ASSERT_TRUE(++replacer);
-  EXPECT_EQ(*replacer, L'Z');
+  EXPECT_EQ(*replacer, U'Z');
   EXPECT_FALSE(++replacer);
 
   Utf8DecodeIterator skipper(one_char_valid.begin(), one_char_valid.end(),
                              ErrorPolicy::kSkip);
   ASSERT_TRUE(skipper);
-  EXPECT_EQ(*skipper, L'A');
+  EXPECT_EQ(*skipper, U'A');
   ASSERT_TRUE(++skipper);
-  EXPECT_EQ(*skipper, L'Z');
+  EXPECT_EQ(*skipper, U'Z');
   EXPECT_FALSE(++skipper);
 }
 
 TEST(Utf8, EncodeIterator) {
-  char32_t text[] = {L'A', kMaxValidCharacter + 1, L'Z', L'\0'};
+  char32_t text[] = {U'A', kMaxValidCharacter + 1, U'Z', U'\0'};
   std::u32string_view one_char_valid = text;
   Utf8EncodeIterator stopper(one_char_valid.begin(), one_char_valid.end(),
                              ErrorPolicy::kStop);

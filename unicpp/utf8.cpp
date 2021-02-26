@@ -88,51 +88,50 @@ size_t Utf8NumCharsWithReplacement(std::string_view utf8_string) {
   return counter.count();
 }
 
-std::string Utf8EncodeReplaceInvalid(std::wstring_view wide_string) {
+std::string Utf8EncodeReplaceInvalid(std::u32string_view u32_string) {
   std::string result;
-  std::back_insert_iterator<std::string> inserter(result);
-  Utf8Encode(wide_string, ErrorPolicy::kReplace, inserter);
+  Utf8Encode(u32_string, ErrorPolicy::kReplace,
+             std::back_insert_iterator(result));
   return result;
 }
 
-std::string Utf8EncodeSkipInvalid(std::wstring_view wide_string) {
+std::string Utf8EncodeSkipInvalid(std::u32string_view u32_string) {
   std::string result;
-  std::back_insert_iterator<std::string> inserter(result);
-  Utf8Encode(wide_string, ErrorPolicy::kSkip, inserter);
+  Utf8Encode(u32_string, ErrorPolicy::kSkip, std::back_insert_iterator(result));
   return result;
 }
 
-std::string Utf8EncodeStopOnInvalid(std::wstring_view wide_string,
-                                    size_t* wchars_encoded) {
+std::string Utf8EncodeStopOnInvalid(std::u32string_view u32_string,
+                                    size_t* u32chars_encoded) {
   std::string result;
-  std::back_insert_iterator<std::string> inserter(result);
-  size_t encoded = Utf8Encode(wide_string, ErrorPolicy::kStop, inserter);
-  if (wchars_encoded != nullptr) {
-    *wchars_encoded = encoded;
+  size_t encoded = Utf8Encode(u32_string, ErrorPolicy::kStop,
+                              std::back_insert_iterator(result));
+  if (u32chars_encoded != nullptr) {
+    *u32chars_encoded = encoded;
   }
   return result;
 }
 
-std::wstring Utf8DecodeReplaceInvalid(std::string_view utf8_string) {
-  std::wstring result;
-  std::back_insert_iterator<std::wstring> inserter(result);
-  Utf8Decode(utf8_string, ErrorPolicy::kReplace, inserter);
+std::u32string Utf8DecodeReplaceInvalid(std::string_view utf8_string) {
+  std::u32string result;
+  Utf8Decode(utf8_string, ErrorPolicy::kReplace,
+             std::back_insert_iterator(result));
 
   return result;
 }
 
-std::wstring Utf8DecodeSkipInvalid(std::string_view utf8_string) {
-  std::wstring result;
-  std::back_insert_iterator<std::wstring> inserter(result);
-  Utf8Decode(utf8_string, ErrorPolicy::kSkip, inserter);
+std::u32string Utf8DecodeSkipInvalid(std::string_view utf8_string) {
+  std::u32string result;
+  Utf8Decode(utf8_string, ErrorPolicy::kSkip,
+             std::back_insert_iterator(result));
 
   return result;
 }
 
-std::wstring Utf8DecodeStopOnInvalid(std::string_view utf8_string,
-                                     size_t* bytes_decoded) {
-  std::wstring result;
-  std::back_insert_iterator<std::wstring> inserter(result);
+std::u32string Utf8DecodeStopOnInvalid(std::string_view utf8_string,
+                                       size_t* bytes_decoded) {
+  std::u32string result;
+  std::back_insert_iterator<std::u32string> inserter(result);
   size_t decoded = Utf8Decode(utf8_string, ErrorPolicy::kStop, inserter);
   if (bytes_decoded != nullptr) {
     *bytes_decoded = decoded;

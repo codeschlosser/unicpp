@@ -20,11 +20,13 @@ size_t Utf8NumCharsWithReplacement(std::string_view);
 
 ### Encoding/decoding functions
 ```cpp
-std::string Utf8EncodeReplaceInvalid(std::wstring_view);
-std::string Utf8EncodeSkipInvalid(std::wstring_view);
-std::string Utf8EncodeStopOnInvalid(std::wstring_view, size_t* wchars_encoded);
+std::string Utf8EncodeReplaceInvalid(std::u32string_view u32_string);
+std::string Utf8EncodeSkipInvalid(std::u32string_view u32_string);
+std::string Utf8EncodeStopOnInvalid(std::u32string_view u32_string,
+                                    size_t* u32chars_encoded);
 
-std::wstring Utf8DecodeReplaceInvalid(std::string_view);
-std::wstring Utf8DecodeSkipInvalid(std::string_view);
-std::wstring Utf8DecodeStopOnInvalid(std::string_view, size_t* bytes_decoded);
+std::u32string Utf8DecodeReplaceInvalid(std::string_view utf8_string);
+std::u32string Utf8DecodeSkipInvalid(std::string_view utf8_string);
+std::u32string Utf8DecodeStopOnInvalid(std::string_view utf8_string,
+                                       size_t* bytes_decoded);
 ```
