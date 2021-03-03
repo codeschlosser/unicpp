@@ -2,14 +2,16 @@
 
 ## Character manipulation and category detection functions (`unicpp/char_type.h`)
 ```cpp
-char32_t toupper(char32_t);
-char32_t tolower(char32_t);
 bool isalpha(char32_t);
 bool isdigit(char32_t);
+
+// one-to-one case mappings
+char32_t toupper(char32_t);
+char32_t tolower(char32_t);
 ```
 
 ## UTF-8 encode/decode functions (`unicpp/utf8.h`)
-U+FFFD is used as replacement character when invalid character/byte sequence is encountered
+&#xFFFD; (U+FFFD) is used as replacement character when invalid character/byte sequence is encountered
 
 ### Strings validation/stats functions
 ```cpp
