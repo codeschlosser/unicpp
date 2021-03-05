@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utf_common.h"
+
 #include <array>
 #include <cassert>
 #include <iterator>
@@ -11,15 +13,6 @@
 #include <stdint.h>
 
 namespace unicpp {
-
-constexpr char32_t kReplacementCharacter = 0xFFFD;
-constexpr char32_t kMaxValidCharacter = 0x10FFFF;
-
-enum class ErrorPolicy {
-  kReplace,
-  kSkip,
-  kStop,
-};
 
 inline bool IsContinuationByte(uint8_t byte) {
   return (byte & 0xC0) == 0x80;
@@ -40,7 +33,7 @@ size_t Utf8DecodeImpl(InputIterator input, InputIterator input_end,
         break;
       }
     }
-    uint8_t byte0 = *input;
+    uint8_t byte0 = static_cast<uint8_t>(*input);
     if (byte0 < 0x80) {
       *output = *input;
       ++input;
@@ -52,7 +45,7 @@ size_t Utf8DecodeImpl(InputIterator input, InputIterator input_end,
       if (std::distance(input, input_end) < 2) {
         break;
       }
-      int byte1 = *std::next(input, 1);
+      uint8_t byte1 = static_cast<uint8_t>(*std::next(input, 1));
       if (!IsContinuationByte(byte1)) {
         break;
       }
@@ -62,7 +55,7 @@ size_t Utf8DecodeImpl(InputIterator input, InputIterator input_end,
       if (std::distance(input, input_end) < 3) {
         break;
       }
-      int byte1 = *std::next(input, 1);
+      uint8_t byte1 = static_cast<uint8_t>(*std::next(input, 1));
       if (!IsContinuationByte(byte1)) {
         break;
       }
@@ -70,7 +63,7 @@ size_t Utf8DecodeImpl(InputIterator input, InputIterator input_end,
         // should have used 2 bytes
         break;
       }
-      int byte2 = *std::next(input, 2);
+      uint8_t byte2 = static_cast<uint8_t>(*std::next(input, 2));
       if (!IsContinuationByte(byte2)) {
         break;
       }
@@ -84,7 +77,7 @@ size_t Utf8DecodeImpl(InputIterator input, InputIterator input_end,
       if (std::distance(input, input_end) < 4) {
         break;
       }
-      int byte1 = *std::next(input, 1);
+      uint8_t byte1 = static_cast<uint8_t>(*std::next(input, 1));
       if (!IsContinuationByte(byte1)) {
         break;
       }
@@ -97,11 +90,11 @@ size_t Utf8DecodeImpl(InputIterator input, InputIterator input_end,
         break;
       }
 
-      int byte2 = *std::next(input, 2);
+      uint8_t byte2 = static_cast<uint8_t>(*std::next(input, 2));
       if (!IsContinuationByte(byte2)) {
         break;
       }
-      int byte3 = *std::next(input, 3);
+      uint8_t byte3 = static_cast<uint8_t>(*std::next(input, 3));
       if (!IsContinuationByte(byte3)) {
         break;
       }
@@ -133,29 +126,26 @@ size_t Utf8Decode(InputIterator input_beg, InputIterator input_end,
                                                       output_beg, output_end);
 }
 
-template <class OutputIterator>
-size_t Utf8Decode(std::string_view utf8_string, ErrorPolicy policy,
-                  OutputIterator output) {
+template <class OutputIterator, ErrorPolicy kPolicy>
+size_t Utf8Decode(std::string_view utf8_string, OutputIterator output) {
   std::string_view::iterator iter = utf8_string.begin();
   std::string_view::iterator end = utf8_string.end();
   while (iter != end) {
     size_t left = static_cast<size_t>(end - iter);
     size_t decoded = Utf8Decode(iter, end, output);
     if (decoded < left) {
-      if (policy == ErrorPolicy::kSkip) {
+      if constexpr (kPolicy == ErrorPolicy::kSkip) {
         ++decoded;
-      } else if (policy == ErrorPolicy::kStop) {
-        iter += decoded;
+      } else if constexpr (kPolicy == ErrorPolicy::kStop) {
+        std::advance(iter, decoded);
         break;
-      } else if (policy == ErrorPolicy::kReplace) {
+      } else if constexpr (kPolicy == ErrorPolicy::kReplace) {
         *output = kReplacementCharacter;
         ++output;
         ++decoded;
-      } else {
-        assert(0);
       }
     }
-    iter += decoded;
+    std::advance(iter, decoded);
   }
 
   return iter - utf8_string.begin();
@@ -182,21 +172,19 @@ OutputIterator Utf8EncodeValidCharacter(char32_t code,
   return ++iterator;
 }
 
-template <class OutputIterator, class CharT>
-size_t Utf8Encode(std::basic_string_view<CharT> string, ErrorPolicy policy,
+template <class CharT, class OutputIterator, ErrorPolicy kPolicy>
+size_t Utf8Encode(std::basic_string_view<CharT> string,
                   OutputIterator iterator) {
   size_t i = 0;
   for (; i < string.length(); i++) {
     char32_t ch = string[i];
-    if (ch > kMaxValidCharacter) {
-      if (policy == ErrorPolicy::kSkip) {
+    if (!IsValidCharacter(ch)) {
+      if constexpr (kPolicy == ErrorPolicy::kSkip) {
         continue;
-      } else if (policy == ErrorPolicy::kStop) {
+      } else if constexpr (kPolicy == ErrorPolicy::kStop) {
         break;
-      } else if (policy == ErrorPolicy::kReplace) {
+      } else if constexpr (kPolicy == ErrorPolicy::kReplace) {
         ch = kReplacementCharacter;
-      } else {
-        assert(0);
       }
     }
 
@@ -206,7 +194,7 @@ size_t Utf8Encode(std::basic_string_view<CharT> string, ErrorPolicy policy,
   return i;
 }
 
-template <class ByteStreamIterator>
+template <class ByteStreamIterator, ErrorPolicy kPolicy>
 class Utf8DecodeIterator {
 public:
   using iterator_category = std::input_iterator_tag;
@@ -219,14 +207,12 @@ public:
       : state_(nullptr)
       , current_char_(0) {}
 
-  Utf8DecodeIterator(ByteStreamIterator input_beg, ByteStreamIterator input_end,
-                     ErrorPolicy policy = ErrorPolicy::kReplace)
+  Utf8DecodeIterator(ByteStreamIterator input_beg, ByteStreamIterator input_end)
       : state_(std::make_shared<State>()) {
     state_->input_beg = input_beg;
     state_->input_end = input_end;
     // set fake value to kick off
     state_->valid_bytes = state_->buffer.size();
-    state_->policy = policy;
     Advance(state_->buffer.size());
     Next();
   }
@@ -291,18 +277,16 @@ private:
         Advance(bytes_decoded);
         return;
       }
-      if (state_->policy == ErrorPolicy::kSkip) {
+      if constexpr (kPolicy == ErrorPolicy::kSkip) {
         Advance(1);
         continue;
-      } else if (state_->policy == ErrorPolicy::kReplace) {
+      } else if constexpr (kPolicy == ErrorPolicy::kReplace) {
         Advance(1);
         current_char_ = kReplacementCharacter;
         return;
-      } else if (state_->policy == ErrorPolicy::kStop) {
+      } else if constexpr (kPolicy == ErrorPolicy::kStop) {
         state_.reset();
         return;
-      } else {
-        assert(0);
       }
     }
     state_.reset();
@@ -313,14 +297,13 @@ private:
     ByteStreamIterator input_end;
     std::array<uint8_t, 4> buffer;
     size_t valid_bytes;
-    ErrorPolicy policy;
   };
 
   std::shared_ptr<State> state_;
   char32_t current_char_;
 };
 
-template <class CharStreamIterator>
+template <class CharStreamIterator, ErrorPolicy kPolicy>
 class Utf8EncodeIterator {
 public:
   using iterator_category = std::input_iterator_tag;
@@ -332,14 +315,12 @@ public:
   Utf8EncodeIterator()
       : state_(nullptr)
       , current_byte_(0) {}
-  Utf8EncodeIterator(CharStreamIterator input_beg, CharStreamIterator input_end,
-                     ErrorPolicy policy = ErrorPolicy::kReplace)
+  Utf8EncodeIterator(CharStreamIterator input_beg, CharStreamIterator input_end)
       : state_(std::make_shared<State>()) {
     state_->input_beg = input_beg;
     state_->input_end = input_end;
     state_->valid_bytes = 0;
     state_->current_offset = 0;
-    state_->policy = policy;
     NextChar();
   }
 
@@ -386,27 +367,25 @@ private:
       return;
     }
 
-    char32_t ch = kMaxValidCharacter + 1;
+    char32_t ch = kInvalidCharacter;
     while (state_->input_beg != state_->input_end) {
       ch = *(state_->input_beg);
       ++state_->input_beg;
-      if (ch <= kMaxValidCharacter) {
+      if (IsValidCharacter(ch)) {
         break;
       }
-      if (state_->policy == ErrorPolicy::kReplace) {
+      if constexpr (kPolicy == ErrorPolicy::kReplace) {
         ch = kReplacementCharacter;
         break;
-      } else if (state_->policy == ErrorPolicy::kStop) {
+      } else if constexpr (kPolicy == ErrorPolicy::kStop) {
         state_.reset();
         return;
-      } else if (state_->policy == ErrorPolicy::kSkip) {
+      } else if constexpr (kPolicy == ErrorPolicy::kSkip) {
         continue;
-      } else {
-        assert(0);
       }
     }
 
-    if (ch > kMaxValidCharacter) {
+    if (!IsValidCharacter(ch)) {
       state_.reset();
       return;
     }
@@ -423,7 +402,6 @@ private:
     std::array<uint8_t, 4> buffer;
     size_t valid_bytes;
     size_t current_offset;
-    ErrorPolicy policy;
   };
 
   std::shared_ptr<State> state_;

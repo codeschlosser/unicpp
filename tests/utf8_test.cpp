@@ -10,6 +10,22 @@
 namespace unicpp {
 namespace {
 
+template <class Iterator>
+using StopUtf8EncodeIterator = Utf8EncodeIterator<Iterator, ErrorPolicy::kStop>;
+template <class Iterator>
+using SkipUtf8EncodeIterator = Utf8EncodeIterator<Iterator, ErrorPolicy::kSkip>;
+template <class Iterator>
+using ReplaceUtf8EncodeIterator =
+    Utf8EncodeIterator<Iterator, ErrorPolicy::kReplace>;
+
+template <class Iterator>
+using StopUtf8DecodeIterator = Utf8DecodeIterator<Iterator, ErrorPolicy::kStop>;
+template <class Iterator>
+using SkipUtf8DecodeIterator = Utf8DecodeIterator<Iterator, ErrorPolicy::kSkip>;
+template <class Iterator>
+using ReplaceUtf8DecodeIterator =
+    Utf8DecodeIterator<Iterator, ErrorPolicy::kReplace>;
+
 using bazel::tools::cpp::runfiles::Runfiles;
 
 std::vector<char> LoadDataFile(const std::string& filepath) {
@@ -33,7 +49,7 @@ std::vector<char> LoadDataFile(const std::string& filepath) {
 TEST(Utf8, Ascii) {
   std::string_view text = "Hello, world!";
   std::u32string plain_copy(text.begin(), text.end());
-  std::u32string decoded = Utf8DecodeStopOnInvalid(text, nullptr);
+  std::u32string decoded = Utf8DecodeStopOnInvalid(text);
 
   EXPECT_EQ(plain_copy, decoded);
 }
@@ -42,10 +58,10 @@ TEST(Utf8, DecodeAndEncode) {
   std::vector<char> data = LoadDataFile("unicpp/tests/data/utf8_text.txt");
   std::string_view view(&data[0], data.size());
 
-  std::u32string decoded = Utf8DecodeStopOnInvalid(view, nullptr);
+  std::u32string decoded = Utf8DecodeStopOnInvalid(view);
   ASSERT_FALSE(decoded.empty());
 
-  std::string encoded = Utf8EncodeReplaceInvalid(decoded);
+  std::string encoded = Utf8EncodeStopOnInvalid(decoded);
 
   EXPECT_EQ(view, encoded);
 }
@@ -103,14 +119,15 @@ TEST(Utf8, Validation) {
 
 TEST(Utf8, DecodeIterator) {
   std::string_view one_char_valid = "A\x80Z";
-  Utf8DecodeIterator stopper(one_char_valid.begin(), one_char_valid.end(),
-                             ErrorPolicy::kStop);
+
+  StopUtf8DecodeIterator<std::string_view::iterator> stopper(
+      one_char_valid.begin(), one_char_valid.end());
   ASSERT_TRUE(stopper);
   EXPECT_EQ(*stopper, U'A');
   EXPECT_FALSE(++stopper);
 
-  Utf8DecodeIterator replacer(one_char_valid.begin(), one_char_valid.end(),
-                              ErrorPolicy::kReplace);
+  ReplaceUtf8DecodeIterator<std::string_view::iterator> replacer(
+      one_char_valid.begin(), one_char_valid.end());
   ASSERT_TRUE(replacer);
   EXPECT_EQ(*replacer, U'A');
   ASSERT_TRUE(++replacer);
@@ -119,8 +136,8 @@ TEST(Utf8, DecodeIterator) {
   EXPECT_EQ(*replacer, U'Z');
   EXPECT_FALSE(++replacer);
 
-  Utf8DecodeIterator skipper(one_char_valid.begin(), one_char_valid.end(),
-                             ErrorPolicy::kSkip);
+  SkipUtf8DecodeIterator<std::string_view::iterator> skipper(
+      one_char_valid.begin(), one_char_valid.end());
   ASSERT_TRUE(skipper);
   EXPECT_EQ(*skipper, U'A');
   ASSERT_TRUE(++skipper);
@@ -129,16 +146,17 @@ TEST(Utf8, DecodeIterator) {
 }
 
 TEST(Utf8, EncodeIterator) {
-  char32_t text[] = {U'A', kMaxValidCharacter + 1, U'Z', U'\0'};
+  char32_t text[] = {U'A', kInvalidCharacter, U'Z', U'\0'};
   std::u32string_view one_char_valid = text;
-  Utf8EncodeIterator stopper(one_char_valid.begin(), one_char_valid.end(),
-                             ErrorPolicy::kStop);
+
+  StopUtf8EncodeIterator<std::u32string_view::iterator> stopper(
+      one_char_valid.begin(), one_char_valid.end());
   ASSERT_TRUE(stopper);
   EXPECT_EQ(*stopper, 'A');
   EXPECT_FALSE(++stopper);
 
-  Utf8EncodeIterator replacer(one_char_valid.begin(), one_char_valid.end(),
-                              ErrorPolicy::kReplace);
+  ReplaceUtf8EncodeIterator<std::u32string_view::iterator> replacer(
+      one_char_valid.begin(), one_char_valid.end());
   ASSERT_TRUE(replacer);
   EXPECT_EQ(*replacer, 'A');
   // encoded kReplacementCharacter == {0xEF,0xBF,0xBD}
@@ -152,8 +170,8 @@ TEST(Utf8, EncodeIterator) {
   EXPECT_EQ(*replacer, 'Z');
   EXPECT_FALSE(++replacer);
 
-  Utf8EncodeIterator skipper(one_char_valid.begin(), one_char_valid.end(),
-                             ErrorPolicy::kSkip);
+  SkipUtf8EncodeIterator<std::u32string_view::iterator> skipper(
+      one_char_valid.begin(), one_char_valid.end());
   ASSERT_TRUE(skipper);
   EXPECT_EQ(*skipper, 'A');
   ASSERT_TRUE(++skipper);
@@ -162,10 +180,15 @@ TEST(Utf8, EncodeIterator) {
 }
 
 TEST(Utf8, Iterators) {
+  using DecodeIterator = unicpp::Utf8DecodeIterator<std::vector<char>::iterator,
+                                                    ErrorPolicy::kStop>;
+  using EncodeIterator =
+      unicpp::Utf8EncodeIterator<DecodeIterator, ErrorPolicy::kStop>;
+
   std::vector<char> data = LoadDataFile("unicpp/tests/data/utf8_text.txt");
 
-  unicpp::Utf8DecodeIterator decoder(data.begin(), data.end());
-  unicpp::Utf8EncodeIterator encoder(decoder, decltype(decoder)());
+  DecodeIterator decoder(data.begin(), data.end());
+  EncodeIterator encoder(decoder, DecodeIterator());
 
   std::vector<char> buffer;
   std::copy(encoder, decltype(encoder)(), std::back_insert_iterator(buffer));

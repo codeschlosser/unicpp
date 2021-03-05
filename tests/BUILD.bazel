@@ -10,3 +10,12 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "utf16_test",
+    srcs = ["utf16_test.cpp"],
+    deps = [
+        "//unicpp:utf16",
+        "@googletest//:gtest_main",
+    ],
+)

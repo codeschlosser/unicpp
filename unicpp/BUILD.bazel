@@ -15,7 +15,20 @@ cc_library(
 )
 
 cc_library(
+    name = "utf_common",
+    hdrs = ["utf_common.h"],
+)
+
+cc_library(
     name = "utf8",
     srcs = ["utf8.cpp"],
     hdrs = ["utf8.h"],
+    deps = [":utf_common"],
+)
+
+cc_library(
+    name = "utf16",
+    srcs = ["utf16.cpp"],
+    hdrs = ["utf16.h"],
+    deps = [":utf_common"],
 )
