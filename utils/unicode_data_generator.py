@@ -13,6 +13,9 @@ DERIVED_GENERAL_CATEGORY_FIELD_NAMES = ('range', 'category')
 DERIVED_NUMERIC_TYPE_FILE_URL = 'https://www.unicode.org/Public/13.0.0/ucd/extracted/DerivedNumericType.txt'
 DERIVED_NUMERIC_TYPE_FIELD_NAMES = ('range', 'type')
 
+DERIVED_BIDI_CLASS_FILE_URL = 'https://www.unicode.org/Public/13.0.0/ucd/extracted/DerivedBidiClass.txt'
+DERIVED_BIDI_CLASS_FIELD_NAMES = ('range', 'bidiclass')
+
 
 def create_reader(url, fieldnames):
     stream = urllib.request.urlopen(url)
@@ -30,7 +33,7 @@ def parse_range(range_str):
     return int(beg, 16), int(end, 16) + 1
 
 
-def main():
+def generate_case_maps():
     unicode_data_reader = create_reader(
         UNICODE_DATA_FILE_URL, DATA_FIELD_NAMES)
     uppers = {}
@@ -47,6 +50,19 @@ def main():
             lower = int('0x' + lower, 16)
             lowers[code] = lower
 
+    print('const std::unordered_map<char32_t, char32_t> kUpperMap = {')
+    for (code, upper) in sorted(uppers.items()):
+        print(f'    {{ {hex(code)}, {hex(upper)} }},')
+    print('};')
+    print()
+    print('const std::unordered_map<char32_t, char32_t> kLowerMap = {')
+    for (code, lower) in sorted(lowers.items()):
+        print(f'    {{ {hex(code)}, {hex(lower)} }},')
+    print('};')
+    print()
+
+
+def generate_general_category_map():
     general_category_reader = create_reader(
         DERIVED_GENERAL_CATEGORY_FILE_URL, DERIVED_GENERAL_CATEGORY_FIELD_NAMES)
     categories = {}
@@ -65,6 +81,15 @@ def main():
             range_category = category
     category_ranges.append((0x110000, range_category))
 
+    print(
+        'const std::map<char32_t, GeneralCategory> kGeneralCategoryRangeMap = {')
+    for (range_beg, range_category) in sorted(category_ranges):
+        print(f'    {{ {hex(range_beg)}, {range_category} }},')
+    print('};')
+    print()
+
+
+def generate_numeric_type_map():
     numeric_type_reader = create_reader(
         DERIVED_NUMERIC_TYPE_FILE_URL, DERIVED_NUMERIC_TYPE_FIELD_NAMES)
     numeric_types = {}
@@ -74,32 +99,52 @@ def main():
         for code in range(beg, end):
             numeric_types[code] = 'NumericType::' + record['type'].strip()
 
-    print('#include "unicode_data.h"')
-    print()
-    print('namespace unicpp {')
-    print()
-    print('const std::unordered_map<char32_t, char32_t> kUpperMap = {')
-    for (code, upper) in sorted(uppers.items()):
-        print(f'    {{ {hex(code)}, {hex(upper)} }},')
-    print('};')
-    print()
-    print('const std::unordered_map<char32_t, char32_t> kLowerMap = {')
-    for (code, lower) in sorted(lowers.items()):
-        print(f'    {{ {hex(code)}, {hex(lower)} }},')
-    print('};')
-    print()
-    print(
-        'const std::map<char32_t, GeneralCategory> kGeneralCategoryRangeMap = {')
-    for (range_beg, range_category) in sorted(category_ranges):
-        print(f'    {{ {hex(range_beg)}, {range_category} }},')
-    print('};')
-    print()
     print(
         'const std::unordered_map<char32_t, NumericType> kNumericTypeMap = {')
     for (code, numeric_type) in sorted(numeric_types.items()):
         print(f'    {{ {hex(code)}, {numeric_type} }},')
     print('};')
     print()
+
+
+def generate_bidi_class_map():
+    bidi_class_reader = create_reader(
+        DERIVED_BIDI_CLASS_FILE_URL, DERIVED_BIDI_CLASS_FIELD_NAMES)
+    bidiclasses = {}
+    for record in bidi_class_reader:
+        beg, end = parse_range(record['range'])
+
+        for code in range(beg, end):
+            bidiclasses[code] = 'BidiClass::' + record['bidiclass'].strip()
+
+    range_class = bidiclasses[0] if 0 in bidiclasses else 'BidiClass::None'
+    class_ranges = []
+    for code in range(0x110000):
+        bidiclass = bidiclasses[code] if code in bidiclasses else 'BidiClass::None'
+        if bidiclass != range_class:
+            class_ranges.append((code, range_class))
+            range_class = bidiclass
+    class_ranges.append((0x110000, range_class))
+
+    print(
+        'const std::map<char32_t, BidiClass> kBidiClassRangeMap = {')
+    for (range_beg, range_class) in sorted(class_ranges):
+        print(f'    {{ {hex(range_beg)}, {range_class} }},')
+    print('};')
+    print()
+
+
+def main():
+    print('#include "unicode_data.h"')
+    print()
+    print('namespace unicpp {')
+    print()
+
+    generate_case_maps()
+    generate_general_category_map()
+    generate_numeric_type_map()
+    generate_bidi_class_map()
+
     print('}  // namespace unicpp')
 
 

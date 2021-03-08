@@ -8,7 +8,7 @@
 namespace unicpp {
 
 enum class GeneralCategory : uint64_t {
-  Unknown = 0LL,
+  None = 0LL,
   Lu = 1LL << 1,
   Ll = 1LL << 2,
   Lt = 1LL << 3,
@@ -49,6 +49,33 @@ enum class GeneralCategory : uint64_t {
   C = Cc | Cf | Cs | Co | Cn,
 };
 
+enum class BidiClass {
+  None,
+  L,
+  R,
+  AL,
+  EN,
+  ES,
+  ET,
+  AN,
+  CS,
+  NSM,
+  BN,
+  B,
+  S,
+  WS,
+  ON,
+  LRE,
+  LRO,
+  RLE,
+  RLO,
+  PDF,
+  LRI,
+  RLI,
+  FSI,
+  PDI,
+};
+
 enum class NumericType {
   None,
   Decimal,
@@ -59,6 +86,7 @@ enum class NumericType {
 extern const std::unordered_map<char32_t, char32_t> kUpperMap;
 extern const std::unordered_map<char32_t, char32_t> kLowerMap;
 extern const std::map<char32_t, GeneralCategory> kGeneralCategoryRangeMap;
+extern const std::map<char32_t, BidiClass> kBidiClassRangeMap;
 extern const std::unordered_map<char32_t, NumericType> kNumericTypeMap;
 
 }  // namespace unicpp
