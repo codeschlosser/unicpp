@@ -4,6 +4,7 @@
 ```cpp
 bool isalpha(char32_t);
 bool isdigit(char32_t);
+bool isspace(char32_t);
 
 // one-to-one case mappings
 char32_t toupper(char32_t);
