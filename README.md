@@ -12,7 +12,7 @@ char32_t tolower(char32_t);
 ```
 
 ## UTF-8 encode/decode functions (`unicpp/utf8.h`)
-&#xFFFD; (U+FFFD) is used as replacement character when invalid character/byte sequence is encountered
+&#xFFFD; (U+FFFD) is used as a replacement character when invalid character/byte sequence is encountered
 
 ### Strings validation/stats functions
 ```cpp
@@ -27,12 +27,12 @@ size_t Utf8NumCharsWithReplacement(std::string_view);
 std::string Utf8EncodeReplaceInvalid(std::u32string_view u32_string);
 std::string Utf8EncodeSkipInvalid(std::u32string_view u32_string);
 std::string Utf8EncodeStopOnInvalid(std::u32string_view u32_string,
-                                    size_t* u32chars_encoded);
+                                    size_t* u32chars_encoded = nullptr);
 
 std::u32string Utf8DecodeReplaceInvalid(std::string_view utf8_string);
 std::u32string Utf8DecodeSkipInvalid(std::string_view utf8_string);
 std::u32string Utf8DecodeStopOnInvalid(std::string_view utf8_string,
-                                       size_t* bytes_decoded);
+                                       size_t* bytes_decoded = nullptr);
 
 // UTF-16LE
 std::u32string Utf16LeDecodeReplaceInvalid(std::string_view u16_string);
