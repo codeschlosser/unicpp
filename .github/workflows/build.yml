@@ -19,7 +19,7 @@ jobs:
         cache-name: bazel-disk-cache-ubuntu
       with:
         path: ~/bazel_disk_cache
-        key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('VERSION') }}
+        key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('.github/workflows/CACHE_VERSION') }}
     - name: build
       run: bazel build --disk_cache=~/bazel_disk_cache --cxxopt -std=c++17 //...:all
     - name: test
@@ -35,7 +35,7 @@ jobs:
         cache-name: bazel-disk-cache-windows
       with:
         path: ~\AppData\Roaming\bazel_disk_cache
-        key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('VERSION') }}
+        key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('.github/workflows/CACHE_VERSION') }}
     - name: build
       run: bazel build --disk_cache="$env:USERPROFILE\AppData\Roaming\bazel_disk_cache" --cxxopt /std:c++17 //...:all
     - name: test
@@ -51,7 +51,7 @@ jobs:
         cache-name: bazel-disk-cache-macos
       with:
         path: ~/bazel_disk_cache
-        key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('VERSION') }}
+        key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('.github/workflows/CACHE_VERSION') }}
     - name: build
       run: bazel build --disk_cache=~/bazel_disk_cache --cxxopt -std=c++17 //...:all
     - name: test
