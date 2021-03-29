@@ -27,11 +27,6 @@ public:
     return *counter_;
   }
 
-  friend bool operator==(const AssignmentCouterOutputIterator& a,
-                         const AssignmentCouterOutputIterator& b) {
-    return &a == &b;
-  }
-
 private:
   std::shared_ptr<size_t> counter_;
 };
@@ -51,11 +46,6 @@ public:
     NopOutputIterator tmp(*this);
     operator++();
     return tmp;
-  }
-
-  friend bool operator==(const NopOutputIterator& a,
-                         const NopOutputIterator& b) {
-    return &a == &b;
   }
 };
 
