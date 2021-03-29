@@ -11,7 +11,7 @@ char32_t toupper(char32_t);
 char32_t tolower(char32_t);
 ```
 
-## UTF-8 encode/decode functions (`unicpp/utf8.h`)
+## UTF-8 and UTF-16 encode/decode functions (`unicpp/utf8.h`, `unicpp/utf16.h`)
 &#xFFFD; (U+FFFD) is used as a replacement character when invalid character/byte sequence is encountered
 
 ### Strings validation/stats functions
