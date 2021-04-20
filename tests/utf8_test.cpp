@@ -68,6 +68,17 @@ TEST(Utf8, DecodeExotic) {
   EXPECT_EQ(U100000_decoded, U100000);
 }
 
+TEST(Utf8, NotBigEnoughChar) {
+  std::string_view U100000_encoded = "\xF4\x80\x80\x80";
+  std::u16string u16_U100000 = Utf8Wstring<std::u16string>(U100000_encoded);
+  EXPECT_EQ(u16_U100000, std::u16string(1, kReplacementCharacter));
+
+  if constexpr (sizeof(wchar_t) <= 2) {
+    std::wstring w_U100000 = Utf8Wstring<std::wstring>(U100000_encoded);
+    EXPECT_EQ(w_U100000, std::wstring(1, kReplacementCharacter));
+  }
+}
+
 TEST(Utf8, DecodeInvalid) {
   std::string_view kThreeErrorsEncoded = "\xE0\x90\x80";
   const std::u32string kThreeErrorsDecoded = U"\xFFFD\xFFFD\xFFFD";

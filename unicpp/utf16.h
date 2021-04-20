@@ -233,7 +233,7 @@ Wstring Utf16LeWstring(const BytesContainer& bytes,
                        size_t* bytes_decoded = nullptr) {
   Wstring result;
   size_t decoded = Utf16LeDecode(bytes.begin(), bytes.end(),
-                                 std::back_insert_iterator(result), policy);
+                                 CheckedBackInserter(result), policy);
   if (bytes_decoded != nullptr) {
     *bytes_decoded = decoded;
   }
@@ -247,7 +247,7 @@ Wstring Utf16BeWstring(const BytesContainer& bytes,
                        size_t* bytes_decoded = nullptr) {
   Wstring result;
   size_t decoded = Utf16BeDecode(bytes.begin(), bytes.end(),
-                                 std::back_insert_iterator(result), policy);
+                                 CheckedBackInserter(result), policy);
   if (bytes_decoded != nullptr) {
     *bytes_decoded = decoded;
   }

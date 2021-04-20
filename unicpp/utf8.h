@@ -425,7 +425,7 @@ Result Utf8Bytes(const Wstring& wstring,
                  size_t* chars_encoded = nullptr) {
   Result result;
   size_t encoded = Utf8Encode(wstring.begin(), wstring.end(),
-                              std::back_insert_iterator(result), policy);
+                              std::back_inserter(result), policy);
 
   if (chars_encoded != nullptr) {
     *chars_encoded = encoded;
@@ -440,7 +440,7 @@ Wstring Utf8Wstring(const BytesContainer& bytes,
                     size_t* bytes_decoded = nullptr) {
   Wstring result;
   size_t decoded = Utf8Decode(bytes.begin(), bytes.end(),
-                              std::back_insert_iterator(result), policy);
+                              CheckedBackInserter(result), policy);
   if (bytes_decoded != nullptr) {
     *bytes_decoded = decoded;
   }
