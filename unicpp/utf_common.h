@@ -65,7 +65,7 @@ public:
     return *this;
   }
 
-protected:
+private:
   Container* container_ = nullptr;
 };
 
