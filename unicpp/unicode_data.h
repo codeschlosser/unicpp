@@ -2,6 +2,7 @@
 
 #include <map>
 #include <unordered_map>
+#include <vector>
 
 #include <stdint.h>
 
@@ -83,10 +84,36 @@ enum class NumericType {
   Numeric,
 };
 
+enum class DecompositionTag {
+  None,
+  Font,      // A font variant (e.g. a blackletter form).
+  NoBreak,   // A no-break version of a space or hyphen.
+  Initial,   // An initial presentation form (Arabic).
+  Medial,    // A medial presentation form (Arabic).
+  Final,     // A final presentation form (Arabic).
+  Isolated,  // An isolated presentation form (Arabic).
+  Circle,    // An encircled form.
+  Super,     // A superscript form.
+  Sub,       // A subscript form.
+  Vertical,  // A vertical layout presentation form.
+  Wide,      // A wide (or zenkaku) compatibility character.
+  Narrow,    // A narrow (or hankaku) compatibility character.
+  Small,     // A small variant form (CNS compatibility).
+  Square,    // A CJK squared font variant.
+  Fraction,  // A vulgar fraction form.
+  Compat,    // Otherwise unspecified compatibility character.
+};
+
+struct Decomposition {
+  DecompositionTag tag;
+  const char32_t* characters;
+};
+
 extern const std::unordered_map<char32_t, char32_t> kUpperMap;
 extern const std::unordered_map<char32_t, char32_t> kLowerMap;
 extern const std::map<char32_t, GeneralCategory> kGeneralCategoryRangeMap;
 extern const std::map<char32_t, BidiClass> kBidiClassRangeMap;
 extern const std::unordered_map<char32_t, NumericType> kNumericTypeMap;
+extern const std::unordered_map<char32_t, Decomposition> kDecompositionMap;
 
 }  // namespace unicpp

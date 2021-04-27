@@ -49,4 +49,13 @@ bool isspace(char32_t code) {
          bidi_class == BidiClass::WS;
 }
 
+const Decomposition* decomposition(char32_t code) {
+  auto it = kDecompositionMap.find(code);
+  if (it == kDecompositionMap.end()) {
+    return nullptr;
+  }
+
+  return &it->second;
+}
+
 }  // namespace unicpp

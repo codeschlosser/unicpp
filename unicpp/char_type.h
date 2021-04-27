@@ -11,4 +11,6 @@ bool isalpha(char32_t code);
 bool isdigit(char32_t code);
 bool isspace(char32_t code);
 
+const Decomposition* decomposition(char32_t code);
+
 }  // namespace unicpp

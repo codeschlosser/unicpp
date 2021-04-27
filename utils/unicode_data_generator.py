@@ -4,8 +4,8 @@ import csv
 import urllib.request
 
 UNICODE_DATA_FILE_URL = 'https://www.unicode.org/Public/13.0.0/ucd/UnicodeData.txt'
-DATA_FIELD_NAMES = ('code', 'name', 'category', 'unused1', 'unused2', 'unused3', 'unused4',
-                    'unused5', 'unused6', 'unused7', 'unused8', 'unused9', 'upper', 'lower', 'unused10')
+DATA_FIELD_NAMES = ('code', 'name', 'category', 'unused1', 'unused2', 'decomposition_mapping', 'unused3',
+                    'unused4', 'unused5', 'unused6', 'unused7', 'unused8', 'upper', 'lower', 'unused9')
 
 DERIVED_GENERAL_CATEGORY_FILE_URL = 'https://www.unicode.org/Public/13.0.0/ucd/extracted/DerivedGeneralCategory.txt'
 DERIVED_GENERAL_CATEGORY_FIELD_NAMES = ('range', 'category')
@@ -134,6 +134,37 @@ def generate_bidi_class_map():
     print()
 
 
+def generate_decomposition_map():
+    unicode_data_reader = create_reader(
+        UNICODE_DATA_FILE_URL, DATA_FIELD_NAMES)
+    mappings = {}
+    for record in unicode_data_reader:
+        code = int('0x' + record['code'].strip(), 16)
+        mapping = record['decomposition_mapping'].strip().split()
+        if not mapping:
+            continue
+        tag = 'None'
+        if mapping[0][0] == '<':
+            tag = mapping[0]
+            assert tag[-1] == '>'
+            tag = tag[1].upper() + tag[2:-1]
+            chars = mapping[1:]
+        else:
+            chars = mapping
+
+        mapping = (tag, *chars)
+        mappings[code] = mapping
+
+    print(
+        'const std::unordered_map<char32_t, Decomposition> kDecompositionMap = {')
+    for (code, mapping) in sorted(mappings.items()):
+        tag, *chars = mapping
+        chars = ''.join('\\U' + ('00000000' + ch)[-8:] for ch in chars)
+        print(f'    {{ {hex(code)}, {{ DecompositionTag::{tag}, U"{chars}" }} }},')
+    print('};')
+    print()
+
+
 def main():
     print('#include "unicode_data.h"')
     print()
@@ -144,6 +175,7 @@ def main():
     generate_general_category_map()
     generate_numeric_type_map()
     generate_bidi_class_map()
+    generate_decomposition_map()
 
     print('}  // namespace unicpp')
 
