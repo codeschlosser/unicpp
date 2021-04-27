@@ -1,6 +1,16 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
 
 cc_test(
+    name = "char_type_test",
+    srcs = ["char_type_test.cpp"],
+    deps = [
+        "//unicpp:char_type",
+        "@bazel_tools//tools/cpp/runfiles",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "utf8_test",
     srcs = ["utf8_test.cpp"],
     data = ["//tests/data:utf8_text_static_file"],
