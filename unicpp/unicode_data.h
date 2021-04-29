@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -106,7 +107,7 @@ enum class DecompositionTag {
 
 struct Decomposition {
   DecompositionTag tag;
-  const char32_t* characters;
+  std::u32string_view characters;
 };
 
 extern const std::unordered_map<char32_t, char32_t> kUpperMap;

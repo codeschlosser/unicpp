@@ -10,7 +10,7 @@ TEST(Decomposition, Basic) {
   ASSERT_NE(decomp, nullptr);
 
   EXPECT_EQ(decomp->tag, DecompositionTag::Font);
-  EXPECT_EQ(decomp->characters, std::u32string_view(U"A"));
+  EXPECT_EQ(decomp->characters, U"A");
 }
 
 }  // namespace
