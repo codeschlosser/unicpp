@@ -1,0 +1,21 @@
+kind: pipeline
+name: build-and-test-linux-arm64
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: build-and-test
+  image: gcc
+  commands:
+  - uuid=$(uuidgen)
+  - mkdir -p ${uuid} && cd ${uuid}
+  - curl -L https://github.com/bazelbuild/bazel/releases/download/4.0.0/bazel-4.0.0-linux-arm64 -o bazel && chmod +x bazel
+  - cd ..
+  - ./${uuid}/bazel -c fastbuild --cxxopt -std=c++17 build //...:all
+  - ./${uuid}/bazel -c fastbuild --cxxopt -std=c++17 test //...:all
+  - ./${uuid}/bazel -c dbg --cxxopt -std=c++17 build //...:all
+  - ./${uuid}/bazel -c dbg --cxxopt -std=c++17 test //...:all
+  - ./${uuid}/bazel -c opt --cxxopt -std=c++17 build //...:all
+  - ./${uuid}/bazel -c opt --cxxopt -std=c++17 test //...:all
