@@ -1,6 +1,10 @@
 kind: pipeline
 name: build-and-test-linux-arm64
 
+trigger:
+  branch:
+  - master
+
 platform:
   os: linux
   arch: arm64
