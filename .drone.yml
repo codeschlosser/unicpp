@@ -9,7 +9,7 @@ steps:
 - name: build-and-test
   image: gcc
   commands:
-  - uuid=$(uuidgen)
+  - uuid="9a647014-7e8b-4bff-ad7a-a392348b43ba"
   - mkdir -p ${uuid} && cd ${uuid}
   - curl -L https://github.com/bazelbuild/bazel/releases/download/4.0.0/bazel-4.0.0-linux-arm64 -o bazel && chmod +x bazel
   - cd ..
