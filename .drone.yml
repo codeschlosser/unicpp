@@ -9,13 +9,12 @@ steps:
 - name: build-and-test
   image: gcc
   commands:
-  - uuid="9a647014-7e8b-4bff-ad7a-a392348b43ba"
-  - mkdir -p ${uuid} && cd ${uuid}
+  - mkdir -p bin && cd bin
   - curl -L https://github.com/bazelbuild/bazel/releases/download/4.0.0/bazel-4.0.0-linux-arm64 -o bazel && chmod +x bazel
   - cd ..
-  - ./${uuid}/bazel -c fastbuild --cxxopt -std=c++17 build //...:all
-  - ./${uuid}/bazel -c fastbuild --cxxopt -std=c++17 test //...:all
-  - ./${uuid}/bazel -c dbg --cxxopt -std=c++17 build //...:all
-  - ./${uuid}/bazel -c dbg --cxxopt -std=c++17 test //...:all
-  - ./${uuid}/bazel -c opt --cxxopt -std=c++17 build //...:all
-  - ./${uuid}/bazel -c opt --cxxopt -std=c++17 test //...:all
+  - ./bin/bazel -c fastbuild --cxxopt -std=c++17 build //...:all
+  - ./bin/bazel -c fastbuild --cxxopt -std=c++17 test //...:all
+  - ./bin/bazel -c dbg --cxxopt -std=c++17 build //...:all
+  - ./bin/bazel -c dbg --cxxopt -std=c++17 test //...:all
+  - ./bin/bazel -c opt --cxxopt -std=c++17 build //...:all
+  - ./bin/bazel -c opt --cxxopt -std=c++17 test //...:all
