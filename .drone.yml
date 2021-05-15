@@ -12,9 +12,9 @@ steps:
   - mkdir -p bin && cd bin
   - curl -L https://github.com/bazelbuild/bazel/releases/download/4.0.0/bazel-4.0.0-linux-arm64 -o bazel && chmod +x bazel
   - cd ..
-  - ./bin/bazel -c fastbuild --cxxopt -std=c++17 build //...:all
-  - ./bin/bazel -c fastbuild --cxxopt -std=c++17 test //...:all
-  - ./bin/bazel -c dbg --cxxopt -std=c++17 build //...:all
-  - ./bin/bazel -c dbg --cxxopt -std=c++17 test //...:all
-  - ./bin/bazel -c opt --cxxopt -std=c++17 build //...:all
-  - ./bin/bazel -c opt --cxxopt -std=c++17 test //...:all
+  - ./bin/bazel build -c fastbuild --cxxopt -std=c++17 build //...:all
+  - ./bin/bazel test -c fastbuild --cxxopt -std=c++17 test //...:all
+  - ./bin/bazel build -c dbg --cxxopt -std=c++17 build //...:all
+  - ./bin/bazel test -c dbg --cxxopt -std=c++17 test //...:all
+  - ./bin/bazel build -c opt --cxxopt -std=c++17 build //...:all
+  - ./bin/bazel test -c opt --cxxopt -std=c++17 test //...:all
